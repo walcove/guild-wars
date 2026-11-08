@@ -23,7 +23,7 @@ Canonical progress record. Governing [plan revision 1.2](plans/2026-11-07-guild-
 - [ ] **Task 9: Define quote adapters and provenance controls** — Mode-separated contracts, registry and quote validation implemented. 3 policy and 2 common contract checks pass; no live provider installed.
 - [ ] **Task 10: Build payoff calculations and the event ledger** — Exact delivered payoff, currency conversion and append-only ledger projection implemented; 11 unit checks pass. Persistent idempotency integration remains blocked.
 - [ ] **Task 11: Integrate SOL history and source-linked events** — Pending.
-- [ ] **Task 12: Add member evidence and the beginner research UI** — Pending.
+- [ ] **Task 12: Add member evidence and the beginner research UI** — Independent hypothetical outcome explorer implemented at /learn; 2 interaction tests pass with exact down/flat/rally results, equal Hold choice and retained invalid text. Private guild research, persistence and rendered checks remain pending.
 - [ ] **Task 13: Build immutable proposals and the plan builder** — Pending.
 - [ ] **Task 14: Publish proposals and attach Telegram research** — Pending.
 - [ ] **Task 15: Implement ballot rules and atomic vote handling** — Pending.
@@ -92,3 +92,7 @@ Engineering T1–T17 and design D01–D09 remain required. Copied governing plan
 - Pre-flight interfaces: Tasks 2→3/9/10 use decimal-string units, explicit mode/denomination and UTC. Tasks 3→4/5/15 require same-transaction enqueue/scope/locks. Tasks 9→17/20 require separate booking versus authorization methods, no universal submit. Tasks 18/20→19/21 independently require verified provider access and registration; fixtures cannot activate real sleeves. Tasks 10/22→24/25 require append-only revisions and complete frozen cohorts. These boundaries are consistent.
 
 - Independent Tasks 8–10 RED→GREEN: schedule stubs 2 relevant failures → 6/6; quote stubs 2 failures → 3/3 plus 2 common contract checks; payoff/ledger stubs 11 failures → 11/11. Typecheck/lint pass. These do not replace required database, licensed-source or live-provider evidence.
+
+- Independent Task 12 calculator RED→GREEN: 2 behavior failures against empty component → 2/2 pass; typecheck/lint exit 0. Uses real exact payoff module, no chart/network dependency, explicit synthetic assumptions and no order action. Latest calculator page has not received a production build or rendered browser verification.
+- Environment stop: disk refilled to zero again during new source writes; the two empty failed ballot files were removed. Removed only this task’s generated node_modules to preserve source/Git records, recovering about 845 MiB at that observation. Run `npm ci` again after stable disk capacity is restored. No additional plan task is claimed complete.
+- Verification inventory at this checkpoint: 44 targeted unit cases and 2 contract cases passed across their recorded runs; latest typecheck/lint passed before dependency cleanup. Bootstrap `npm run verify` (including production web/worker build) passed before the later domain/calculator increments. PostgreSQL and browser assertions have not passed.

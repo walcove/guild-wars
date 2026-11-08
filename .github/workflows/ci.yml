@@ -13,6 +13,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run verify
+      - run: npm run test:contracts
   postgres-integration:
     runs-on: ubuntu-latest
     services:

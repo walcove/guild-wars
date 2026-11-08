@@ -1,0 +1,24 @@
+'use client';
+import {useRef,useState} from 'react';
+import {coveredCallUsd} from '../../domain/payoff';
+import {formatUnits,fraction,multiply,round,parseUnits,type Fraction} from '../../domain/money';
+const fx={amount:'1',pair:'USD/USDC' as const,observedAt:'2026-11-07T12:00:00.000Z',sourceId:'synthetic-teaching-fx',rounding:'half_away' as const};
+function dollars(value:Fraction):string {
+ const cents=round(multiply(value,fraction(100n)),'half_away');const absolute=cents<0n?-cents:cents;
+ const [whole,part='']=formatUnits(absolute,2).split('.');
+ return `${cents<0n?'Loss −':cents>0n?'Gain +':'No change '}$${whole}.${part.padEnd(2,'0')}`;
+}
+function result(strike:string,terminal:string) {
+ const holding=multiply(fraction(1n),fraction(parseUnits(terminal,6)-100000000n,1000000n));
+ if(strike==='hold')return {covered:holding,holding};
+ const outcome=coveredCallUsd({quantityLamports:1000000000n,entryUsdPerSol:'100',terminalUsdPerSol:terminal,strike:{amount:strike,denomination:'USD'},settlement:'physical',grossPremiumUsdcMicros:strike==='110'?2000000n:1000000n,premiumFx:fx,settlementFx:fx,fees:[{currency:'USDC',units:100000n,fx}]});
+ if(outcome.status!=='priced')throw new Error(outcome.reason);return outcome;
+}
+function Scenario({label,terminal,strike}:{label:string;terminal:string;strike:string}) {
+ const outcome=result(strike,terminal);
+ return <section aria-label={label}><h3>{label}</h3><dl><dt>{strike==='hold'?'Selected plan · holding':'Covered call · total result'}</dt><dd className={outcome.covered.numerator<0n?'loss mono':'mono'}>{dollars(outcome.covered)}</dd><dt>Simply holding SOL</dt><dd className={outcome.holding.numerator<0n?'loss mono':'mono'}>{dollars(outcome.holding)}</dd></dl></section>;
+}
+export function OutcomeExplorer() {
+ const [strike,setStrike]=useState('110');const [ending,setEnding]=useState('100');const [compared,setCompared]=useState<string|null>(null);const [error,setError]=useState('');const summary=useRef<HTMLDivElement>(null);
+ return <><span className="badge">Hypothetical example</span><p>Comparison: <strong>1 SOL</strong> at a $100 starting price. Physical delivery at expiration is assumed here. Actual settlement follows the provider’s contract.</p><fieldset><legend>Compare a call with keeping your SOL</legend><div className="choices">{[['110','Call A · Sell at $110','$2 gross premium; $0.10 fee; $1.90 net'],['115','Call B · Sell at $115','$1 gross premium; $0.10 fee; $0.90 net'],['hold','Keep holding SOL','No call premium or obligation; full upside and downside']].map(([value,label,description])=><div key={value} className={`choice${strike===value?' selected':''}`}><label><input type="radio" name="teaching-strike" value={value} checked={strike===value} onChange={()=>setStrike(value)}/>{label}</label><p>{description}</p></div>)}</div></fieldset><p className="muted">Synthetic premiums and fees. Hypothetical USDC/USD conversion: 1.00, observed November 7, 2026 at 12:00 UTC. These values are not available to trade. Display rounds to cents, halfway away from zero; calculation retains exact fractions.</p><div className="numeric-list"><Scenario label="Falls to $80" terminal="80" strike={strike}/><Scenario label="Stays at $100" terminal="100" strike={strike}/><Scenario label="Rallies to $130" terminal="130" strike={strike}/></div><p>{strike==='hold'?'Holding keeps all price gains and losses and receives no option premium.':`The call limits gains above $${strike}. The premium does not prevent a substantial loss if SOL falls.`}</p><form onSubmit={event=>{event.preventDefault();try{parseUnits(ending,6);setCompared(ending);setError('');}catch{setError('Enter a nonnegative USD price with up to six decimal places. Your previous comparison remains below.');requestAnimationFrame(()=>summary.current?.focus());}}}><div className="field"><label htmlFor="ending-price">Ending SOL price in USD</label><input id="ending-price" inputMode="decimal" value={ending} onChange={e=>setEnding(e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error?'scenario-error':undefined}/></div>{error&&<div id="scenario-error" ref={summary} tabIndex={-1} role="alert" className="field-error">{error}</div>}<button className="button primary" type="submit">Compare this ending price</button></form><div aria-live="polite">{compared!==null&&<Scenario label="Your ending price" terminal={compared} strike={strike}/>}</div><details><summary>What this example leaves out</summary><p>No probability or expected profit is implied. Taxes, custody failure, changes in USDC/USD value, provider-specific cash settlement and unpriced costs are not modeled by these fixed assumptions. Live orders need exact quantity, fresh executable terms, all costs and your separate authorization.</p></details></>;
+}

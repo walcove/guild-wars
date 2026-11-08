@@ -19,3 +19,5 @@ The initial install exhausted disk in this task's temporary metadata cache. Reso
 ## External readiness
 
 [Provider decision](../decisions/0001-live-provider.md), [data decision](../decisions/0002-market-data.md). No permitted provider/test-bot credentials or authoritative records supplied. Live preparation false; production messages/funded actions forbidden. Synthetic evidence never passes live gates.
+
+After cleanup, the recovered space filled again within minutes. New ballot source writes failed with ENOSPC; their empty files were removed, not counted as implementation. Removed only the reproducible dependency directory created by this task, recovering ~845 MiB at that observation. Restore stable free disk and rerun npm ci before further test/build work. The checked-in lockfile remains intact.
