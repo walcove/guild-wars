@@ -204,6 +204,27 @@
       "when": 1794128123057,
       "tag": "0028_lumpy_mikhail_rasputin",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794128395386,
+      "tag": "0029_dusty_molly_hayes",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1794129001740,
+      "tag": "0030_perpetual_squadron_sinister",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794129621101,
+      "tag": "0031_gifted_madame_hydra",
+      "breakpoints": true
     }
   ]
 }

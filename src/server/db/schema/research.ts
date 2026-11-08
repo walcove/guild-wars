@@ -1,12 +1,135 @@
-import { pgTable,text,uuid,jsonb,integer,timestamp,index,foreignKey,unique } from 'drizzle-orm/pg-core';
-import { id,createdAt } from './common';
-import { users } from './identity';
-import { guilds } from './guilds';
-import { rounds } from './rounds';
-import { proposalVersions } from './proposals';
-export const researchNotes=pgTable('research_notes',{id:id(),requestId:uuid('request_id').notNull().defaultRandom(),guildId:uuid('guild_id').notNull(),roundId:uuid('round_id').notNull(),authorId:uuid('author_id').notNull().references(()=>users.id),proposalVersionId:uuid('proposal_version_id'),sourceUrl:text('source_url').notNull(),claim:text('claim').notNull(),uncertainty:text('uncertainty').notNull(),disclosures:text('disclosures').notNull(),opposingView:text('opposing_view'),revision:integer('revision').notNull(),createdAt:createdAt()},t=>[unique('note_author_request').on(t.authorId,t.requestId),foreignKey({columns:[t.proposalVersionId,t.guildId,t.roundId],foreignColumns:[proposalVersions.id,proposalVersions.guildId,proposalVersions.roundId]}),foreignKey({columns:[t.roundId,t.guildId],foreignColumns:[rounds.id,rounds.guildId]}),index('research_cursor').on(t.guildId,t.createdAt,t.id)]);
-export const researchRevisions=pgTable('research_revisions',{id:id(),noteId:uuid('note_id').notNull().references(()=>researchNotes.id),content:jsonb('content').notNull(),revision:integer('revision').notNull(),createdAt:createdAt()},t=>[unique('note_revision').on(t.noteId,t.revision)]);
-export const forecasts=pgTable('forecasts',{id:id(),guildId:uuid('guild_id').notNull().references(()=>guilds.id),authorId:uuid('author_id').notNull().references(()=>users.id),terms:jsonb('terms').notNull(),deadline:timestamp('deadline',{withTimezone:true,mode:'string'}).notNull(),week:text('week').notNull(),state:text('state').notNull(),outcome:jsonb('outcome'),createdAt:createdAt()});
-export const bounties=pgTable('bounties',{id:id(),guildId:uuid('guild_id').notNull().references(()=>guilds.id),week:text('week').notNull(),criteria:jsonb('criteria').notNull(),createdAt:createdAt()},t=>[unique('one_bounty_week').on(t.guildId,t.week)]);
-export const awardDecisions=pgTable('award_decisions',{id:id(),guildId:uuid('guild_id').notNull().references(()=>guilds.id),submissionId:uuid('submission_id').notNull(),reviewerId:uuid('reviewer_id').notNull().references(()=>users.id),reason:text('reason').notNull(),state:text('state').notNull(),appealDeadline:timestamp('appeal_deadline',{withTimezone:true,mode:'string'}).notNull(),createdAt:createdAt()});
-export const recognitionEvents=pgTable('recognition_events',{id:id(),userId:uuid('user_id').notNull().references(()=>users.id),kind:text('kind').notNull(),units:integer('units').notNull(),reason:text('reason').notNull(),operationId:text('operation_id').notNull().unique(),createdAt:createdAt()});
+import {
+  pgTable,
+  text,
+  uuid,
+  jsonb,
+  integer,
+  timestamp,
+  index,
+  foreignKey,
+  unique,
+} from "drizzle-orm/pg-core";
+import { id, createdAt } from "./common";
+import { users } from "./identity";
+import { guilds } from "./guilds";
+import { rounds } from "./rounds";
+import { proposalVersions } from "./proposals";
+export const researchNotes = pgTable(
+  "research_notes",
+  {
+    id: id(),
+    requestId: uuid("request_id").notNull().defaultRandom(),
+    guildId: uuid("guild_id").notNull(),
+    roundId: uuid("round_id").notNull(),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id),
+    proposalVersionId: uuid("proposal_version_id"),
+    sourceUrl: text("source_url").notNull(),
+    claim: text("claim").notNull(),
+    uncertainty: text("uncertainty").notNull(),
+    disclosures: text("disclosures").notNull(),
+    opposingView: text("opposing_view"),
+    revision: integer("revision").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique("note_author_request").on(t.authorId, t.requestId),
+    foreignKey({
+      columns: [t.proposalVersionId, t.guildId, t.roundId],
+      foreignColumns: [
+        proposalVersions.id,
+        proposalVersions.guildId,
+        proposalVersions.roundId,
+      ],
+    }),
+    foreignKey({
+      columns: [t.roundId, t.guildId],
+      foreignColumns: [rounds.id, rounds.guildId],
+    }),
+    index("research_cursor").on(t.guildId, t.createdAt, t.id),
+  ]
+);
+export const researchRevisions = pgTable(
+  "research_revisions",
+  {
+    id: id(),
+    noteId: uuid("note_id")
+      .notNull()
+      .references(() => researchNotes.id),
+    content: jsonb("content").notNull(),
+    revision: integer("revision").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [unique("note_revision").on(t.noteId, t.revision)]
+);
+export const forecasts = pgTable(
+  "forecasts",
+  {
+    id: id(),
+    guildId: uuid("guild_id")
+      .notNull()
+      .references(() => guilds.id),
+    authorId: uuid("author_id")
+      .notNull()
+      .references(() => users.id),
+    terms: jsonb("terms").notNull(),
+    deadline: timestamp("deadline", {
+      withTimezone: true,
+      mode: "string",
+    }).notNull(),
+    week: text("week").notNull(),
+    state: text("state").notNull(),
+    outcome: jsonb("outcome"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("forecast_author_week").on(t.authorId, t.week),
+    index("forecast_guild_cursor").on(t.guildId, t.createdAt, t.id),
+  ]
+);
+export const bounties = pgTable(
+  "bounties",
+  {
+    id: id(),
+    guildId: uuid("guild_id")
+      .notNull()
+      .references(() => guilds.id),
+    week: text("week").notNull(),
+    criteria: jsonb("criteria").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [unique("one_bounty_week").on(t.guildId, t.week)]
+);
+export const awardDecisions = pgTable("award_decisions", {
+  id: id(),
+  guildId: uuid("guild_id")
+    .notNull()
+    .references(() => guilds.id),
+  submissionId: uuid("submission_id").notNull(),
+  reviewerId: uuid("reviewer_id")
+    .notNull()
+    .references(() => users.id),
+  reason: text("reason").notNull(),
+  state: text("state").notNull(),
+  appealDeadline: timestamp("appeal_deadline", {
+    withTimezone: true,
+    mode: "string",
+  }).notNull(),
+  createdAt: createdAt(),
+});
+export const recognitionEvents = pgTable(
+  "recognition_events",
+  {
+    id: id(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    kind: text("kind").notNull(),
+    units: integer("units").notNull(),
+    reason: text("reason").notNull(),
+    operationId: text("operation_id").notNull().unique(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("recognition_owner_kind").on(t.userId, t.kind)]
+);
