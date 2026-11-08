@@ -1,6 +1,10 @@
-import { pgTable,text,uuid,integer,jsonb,timestamp,unique,foreignKey,check,index } from 'drizzle-orm/pg-core';
+import { pgTable,text,uuid,integer,jsonb,timestamp,unique,foreignKey,check,index,primaryKey } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { id,createdAt,tradingMode } from './common';
+import { users } from './identity';
 import { guilds } from './guilds';
 export const seasons=pgTable('seasons',{id:id(),guildId:uuid('guild_id').notNull().references(()=>guilds.id),mode:tradingMode('mode').notNull(),division:text('division').notNull(),rulesVersion:text('rules_version').notNull(),rules:jsonb('rules').notNull(),createdAt:createdAt()},t=>[unique('season_tenant').on(t.id,t.guildId),unique('season_tenant_mode').on(t.id,t.guildId,t.mode)]);
 export const rounds=pgTable('rounds',{id:id(),guildId:uuid('guild_id').notNull().references(()=>guilds.id),seasonId:uuid('season_id').notNull(),mode:tradingMode('mode').notNull(),number:integer('number').notNull(),state:text('state').notNull(),schedule:jsonb('schedule').notNull(),expiresAt:timestamp('expires_at',{withTimezone:true,mode:'string'}).notNull(),revision:integer('revision').notNull().default(1),createdAt:createdAt()},t=>[unique('round_tenant').on(t.id,t.guildId),unique('round_tenant_season').on(t.id,t.guildId,t.seasonId),unique('round_tenant_mode').on(t.id,t.guildId,t.mode),unique('round_season_number').on(t.seasonId,t.number),foreignKey({columns:[t.seasonId,t.guildId,t.mode],foreignColumns:[seasons.id,seasons.guildId,seasons.mode]}),check('four_rounds',sql`${t.number} between 1 and 4`),index('round_guild_state').on(t.guildId,t.state)]);
+
+export const roundRoster=pgTable('round_roster',{roundId:uuid('round_id').notNull().references(()=>rounds.id),userId:uuid('user_id').notNull().references(()=>users.id),createdAt:createdAt()},t=>[primaryKey({columns:[t.roundId,t.userId]})]);
+export const roundEvents=pgTable('round_events',{id:id(),roundId:uuid('round_id').notNull().references(()=>rounds.id),fromState:text('from_state').notNull(),toState:text('to_state').notNull(),operationId:text('operation_id').notNull().unique(),reason:text('reason').notNull(),occurredAt:timestamp('occurred_at',{withTimezone:true,mode:'string'}).notNull(),record:jsonb('record').notNull(),createdAt:createdAt()});

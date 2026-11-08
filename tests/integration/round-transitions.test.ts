@@ -1,0 +1,57 @@
+import {afterAll,beforeAll,expect,it} from 'vitest';
+import type {Pool} from 'pg';
+import {testPool} from './helpers/database';
+import {syntheticGuild} from './helpers/fixtures';
+import {createSeason,advanceRound,readRound,transitionRecorded,type SeasonInput} from '../../src/server/services/rounds';
+import type {RoundSchedule} from '../../src/domain/round-policy';
+let db:Pool;beforeAll(()=>{db=testPool();});afterAll(async()=>{await db.end();});
+const start=Date.UTC(2030,0,1),hour=3600000;
+const schedule=(i:number):RoundSchedule=>{const t=start+i*7*24*hour,iso=(h:number)=>new Date(t+h*hour).toISOString();return {researchOpen:iso(0),candidateLock:iso(24),voteOpen:iso(24),voteClose:iso(36),executionClose:iso(37),midweekOpen:iso(72),midweekClose:iso(84),expiresAt:iso(128)};};
+const input:SeasonInput={mode:'simulation',division:'synthetic-teaching',rulesVersion:'pilot-1',schedules:[0,1,2,3].map(schedule)};
+const readiness={kind:'synthetic' as const,providerId:'synthetic',expirations:input.schedules.map(s=>s.expiresAt)};
+const clock=(instant:string)=>({now:()=>new Date(instant)});
+it('creates four frozen rounds and refuses rewritten timetables, rules and cross-guild authority',async()=>{
+ const f=await syntheticGuild(db),outsider=await syntheticGuild(db);
+ await expect(createSeason(db,outsider.userId,f.guildId,input,readiness,clock(new Date(start-hour).toISOString()))).rejects.toMatchObject({code:'forbidden'});
+ const season=await createSeason(db,f.userId,f.guildId,input,readiness,clock(new Date(start-hour).toISOString()));
+ expect(season.rounds).toHaveLength(4);
+ await expect(db.query("UPDATE seasons SET rules_version='changed' WHERE id=$1",[season.id])).rejects.toThrow(/append-only/);
+ await expect(db.query("UPDATE rounds SET schedule='{}' WHERE id=$1",[season.rounds[0].id])).rejects.toThrow(/schedule is immutable/);
+ await expect(createSeason(db,f.userId,f.guildId,{...input,mode:'live'},readiness)).rejects.toMatchObject({code:'provider_unavailable'});
+ await expect(createSeason(db,f.userId,f.guildId,input,{...readiness,expirations:[new Date(start).toISOString()]})).rejects.toMatchObject({code:'instrument_expiration'});
+});
+it('uses deadline boundaries, freezes a voting roster once and does not infer an election or settlement',async()=>{
+ const f=await syntheticGuild(db),s=input.schedules[0],season=await createSeason(db,f.userId,f.guildId,input,readiness,clock(new Date(start-hour).toISOString())),round=season.rounds[0];
+ expect((await advanceRound(db,round.id,clock(new Date(Date.parse(s.candidateLock)-1).toISOString()))).state).toBe('research');
+ expect((await advanceRound(db,round.id,clock(s.candidateLock))).state).toBe('voting');
+ expect((await db.query('SELECT count(*)::int n FROM round_roster WHERE round_id=$1',[round.id])).rows[0].n).toBe(1);
+ await db.query("UPDATE memberships SET status='departed' WHERE guild_id=$1 AND user_id=$2",[f.guildId,f.userId]);
+ await advanceRound(db,round.id,clock(s.voteClose));
+ expect((await db.query('SELECT count(*)::int n FROM round_roster WHERE round_id=$1',[round.id])).rows[0].n).toBe(1);
+ expect((await db.query('SELECT state FROM rounds WHERE id=$1',[round.id])).rows[0].state).toBe('voting');
+ await expect(transitionRecorded(db,round.id,'open','fake','Skip election',clock(s.voteClose))).rejects.toThrow();
+ expect((await db.query('SELECT count(*)::int n FROM round_events WHERE round_id=$1',[round.id])).rows[0].n).toBe(2);
+});
+it('records terminal corrections idempotently, with reason; exposes authenticated next actions only',async()=>{
+ const f=await syntheticGuild(db),other=await syntheticGuild(db),season=await createSeason(db,f.userId,f.guildId,input,readiness,clock(new Date(start-hour).toISOString())),r=season.rounds[0];
+ const view=await readRound(db,f.userId,f.guildId,r.id,clock(new Date(start+hour).toISOString()));
+ expect(view.nextAction).toMatchObject({label:'Research and compare',deadline:input.schedules[0].candidateLock});
+ await expect(readRound(db,other.userId,f.guildId,r.id)).rejects.toMatchObject({code:'forbidden'});
+ await transitionRecorded(db,r.id,'cancelled','cancel:'+r.id,'Synthetic cancellation test',clock(input.schedules[0].voteClose));
+ await transitionRecorded(db,r.id,'cancelled','cancel:'+r.id,'Synthetic cancellation test',clock(input.schedules[0].voteClose));
+ expect((await db.query('SELECT count(*)::int n FROM round_events WHERE round_id=$1',[r.id])).rows[0].n).toBe(1);
+ await expect(transitionRecorded(db,r.id,'research','reopen:'+r.id,'No reopening',clock(input.schedules[0].expiresAt))).rejects.toThrow();
+});
+it('advances sequential management boundaries without treating expiration as settled funds',async()=>{
+ const f=await syntheticGuild(db),season=await createSeason(db,f.userId,f.guildId,input,readiness,clock(new Date(start-hour).toISOString())),r=season.rounds[0],s=input.schedules[0];
+ await advanceRound(db,r.id,clock(s.voteOpen));
+ await transitionRecorded(db,r.id,'execution_window','synthetic-close:'+r.id,'Synthetic election evidence for transition test',clock(s.voteClose));
+ expect((await advanceRound(db,r.id,clock(new Date(Date.parse(s.executionClose)-1).toISOString()))).state).toBe('execution_window');
+ expect((await advanceRound(db,r.id,clock(s.executionClose))).state).toBe('open');
+ expect((await advanceRound(db,r.id,clock(new Date(Date.parse(s.midweekOpen)-1).toISOString()))).state).toBe('open');
+ expect((await advanceRound(db,r.id,clock(s.midweekOpen))).state).toBe('midweek');
+ expect((await advanceRound(db,r.id,clock(s.midweekClose))).state).toBe('midweek');
+ expect((await advanceRound(db,r.id,clock(s.expiresAt))).state).toBe('settlement_pending');
+ expect((await advanceRound(db,r.id,clock(s.expiresAt))).state).toBe('settlement_pending');
+ const late=season.rounds[1];expect((await advanceRound(db,late.id,clock(input.schedules[1].voteClose))).state).toBe('unranked');
+});

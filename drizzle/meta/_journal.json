@@ -43,6 +43,13 @@
       "when": 1794112333705,
       "tag": "0005_known_cargill",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794112799659,
+      "tag": "0006_right_talisman",
+      "breakpoints": true
     }
   ]
 }
