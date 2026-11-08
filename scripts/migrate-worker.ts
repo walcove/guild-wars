@@ -8,6 +8,8 @@ try {
  await db.query(`
  DO $$ BEGIN IF NOT EXISTS(SELECT FROM pg_roles WHERE rolname='guild_wars_worker') THEN CREATE ROLE guild_wars_worker LOGIN PASSWORD 'local_worker_only' NOSUPERUSER NOCREATEDB NOCREATEROLE; END IF; END $$;
  GRANT USAGE ON SCHEMA public TO guild_wars_worker;
+ GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO guild_wars_worker;
+ ALTER DEFAULT PRIVILEGES FOR ROLE guild_wars_migrator IN SCHEMA public GRANT USAGE ON SEQUENCES TO guild_wars_worker;
  GRANT SELECT,INSERT,UPDATE ON ALL TABLES IN SCHEMA public TO guild_wars_worker;
  ALTER DEFAULT PRIVILEGES FOR ROLE guild_wars_migrator IN SCHEMA public GRANT SELECT,INSERT,UPDATE ON TABLES TO guild_wars_worker;
  -- Documented ownership adjustment for Graphile's runtime role, never application data rewrites.

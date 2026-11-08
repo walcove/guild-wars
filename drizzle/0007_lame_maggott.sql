@@ -1,0 +1,3 @@
+ALTER TABLE "ledger_events" ADD COLUMN "sequence" bigserial NOT NULL;--> statement-breakpoint
+ALTER TABLE "ledger_events" ADD CONSTRAINT "ledger_tenant" UNIQUE("id","sleeve_id");--> statement-breakpoint
+ALTER TABLE "ledger_events" ADD CONSTRAINT "ledger_events_corrects_event_id_sleeve_id_ledger_events_id_sleeve_id_fk" FOREIGN KEY ("corrects_event_id","sleeve_id") REFERENCES "public"."ledger_events"("id","sleeve_id") ON DELETE no action ON UPDATE no action;

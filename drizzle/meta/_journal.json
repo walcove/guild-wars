@@ -50,6 +50,20 @@
       "when": 1794112799659,
       "tag": "0006_right_talisman",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794113014209,
+      "tag": "0007_lame_maggott",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794113067406,
+      "tag": "0008_sequence_permissions",
+      "breakpoints": true
     }
   ]
 }
