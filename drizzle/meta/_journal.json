@@ -15,6 +15,13 @@
       "when": 1794106445331,
       "tag": "0001_immutable_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794107382191,
+      "tag": "0002_acoustic_lionheart",
+      "breakpoints": true
     }
   ]
 }

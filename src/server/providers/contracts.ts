@@ -10,5 +10,5 @@ export type VerifiedExecutionEvent=EventBase & (
 );
 export interface ExecutionAdapter {readonly mode:TradingMode;listInstruments(roundId:string):Promise<ContractTerms[]>;quote(intentId:string):Promise<OptionQuote>;reconcile(externalReference:string):Promise<VerifiedExecutionEvent[]>}
 export interface SimulationAdapter extends ExecutionAdapter {readonly mode:'simulation';bookVirtual(intentId:string):Promise<VerifiedExecutionEvent[]>}
-export interface LiveAdapter extends ExecutionAdapter {readonly mode:'live';prepareMemberAuthorization(intentId:string,reviewHash:string):Promise<{kind:'hosted'|'wallet';reference:string}>}
+export interface LiveAdapter extends ExecutionAdapter {readonly mode:'live';readonly providerId:string;prepareMemberAuthorization(intentId:string,reviewHash:string):Promise<{kind:'hosted'|'wallet';reference:string}>}
 export interface SizePolicy {minimumLamports:string;incrementLamports:string;capacityLamports:string|null}

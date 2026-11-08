@@ -3,9 +3,10 @@ import {invariant} from '../../domain/errors';
 import {parseContractTerms,parseSource,parseUtc,idSchema,modeSchema,quoteKindSchema,unitsSchema,assertSameMode,type TradingMode} from '../../domain/types';
 import type {OptionQuote,SizePolicy} from './contracts';
 const quoteSchema=z.object({id:idSchema,mode:modeSchema,kind:quoteKindSchema,terms:z.unknown(),coveredLamports:unitsSchema,grossPremiumUsdcMicros:unitsSchema,fees:z.array(z.object({currency:z.enum(['SOL','USDC']),units:unitsSchema}).strict()),validUntil:z.string(),source:z.unknown()}).strict();
-export function assertEligibleQuote(input:OptionQuote,context:{mode:TradingMode;instrumentId:string;now:string;ranked:boolean;size:SizePolicy}):OptionQuote {
+export function assertEligibleQuote(input:OptionQuote,context:{providerId:string;mode:TradingMode;instrumentId:string;now:string;ranked:boolean;size:SizePolicy}):OptionQuote {
  const parsed=quoteSchema.parse(input);const quote:OptionQuote={...parsed,terms:parseContractTerms(parsed.terms),source:parseSource(parsed.source)};
  parseUtc(context.now);parseUtc(quote.validUntil);assertSameMode(context.mode,quote.mode);
+ invariant(quote.terms.providerId===context.providerId,'provider_mismatch','Quote provider does not match the server-owned round provider');
  invariant(quote.terms.instrumentId===context.instrumentId,'instrument','Quote instrument does not match this plan');
  invariant(quote.validUntil>context.now&&quote.terms.expiresAt>context.now&&quote.source.observedAt<=context.now,'quote_expired','Quote is expired or not yet observable');
  const quantity=BigInt(quote.coveredLamports),minimum=BigInt(unitsSchema.parse(context.size.minimumLamports)),increment=BigInt(unitsSchema.parse(context.size.incrementLamports));

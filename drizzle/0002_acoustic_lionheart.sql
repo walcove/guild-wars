@@ -1,0 +1,13 @@
+ALTER TABLE "sleeves" ADD COLUMN "season_id" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "rounds" ADD CONSTRAINT "round_tenant_season" UNIQUE("id","guild_id","season_id");--> statement-breakpoint
+ALTER TABLE "cohort_members" ADD CONSTRAINT "cohort_owner_season" UNIQUE("id","guild_id","user_id","season_id");--> statement-breakpoint
+ALTER TABLE "order_intents" ADD CONSTRAINT "intent_account_mode" UNIQUE("id","account_id","mode");--> statement-breakpoint
+ALTER TABLE "sleeves" ADD CONSTRAINT "sleeve_owner_mode" UNIQUE("id","guild_id","user_id","mode");--> statement-breakpoint
+ALTER TABLE "sleeves" ADD CONSTRAINT "sleeve_account" UNIQUE("id","account_id");--> statement-breakpoint
+ALTER TABLE "order_intents" ADD CONSTRAINT "order_intents_sleeve_id_guild_id_user_id_mode_sleeves_id_guild_id_user_id_mode_fk" FOREIGN KEY ("sleeve_id","guild_id","user_id","mode") REFERENCES "public"."sleeves"("id","guild_id","user_id","mode") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "order_intents" ADD CONSTRAINT "order_intents_sleeve_id_account_id_sleeves_id_account_id_fk" FOREIGN KEY ("sleeve_id","account_id") REFERENCES "public"."sleeves"("id","account_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "order_intents" ADD CONSTRAINT "order_intents_account_id_user_id_provider_accounts_id_user_id_fk" FOREIGN KEY ("account_id","user_id") REFERENCES "public"."provider_accounts"("id","user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "reservations" ADD CONSTRAINT "reservations_intent_id_account_id_mode_order_intents_id_account_id_mode_fk" FOREIGN KEY ("intent_id","account_id","mode") REFERENCES "public"."order_intents"("id","account_id","mode") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sleeves" ADD CONSTRAINT "sleeves_round_id_guild_id_season_id_rounds_id_guild_id_season_id_fk" FOREIGN KEY ("round_id","guild_id","season_id") REFERENCES "public"."rounds"("id","guild_id","season_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sleeves" ADD CONSTRAINT "sleeves_account_id_user_id_provider_accounts_id_user_id_fk" FOREIGN KEY ("account_id","user_id") REFERENCES "public"."provider_accounts"("id","user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sleeves" ADD CONSTRAINT "sleeves_cohort_member_id_guild_id_user_id_season_id_cohort_members_id_guild_id_user_id_season_id_fk" FOREIGN KEY ("cohort_member_id","guild_id","user_id","season_id") REFERENCES "public"."cohort_members"("id","guild_id","user_id","season_id") ON DELETE no action ON UPDATE no action;
