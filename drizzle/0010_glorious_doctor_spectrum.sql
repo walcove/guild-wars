@@ -1,0 +1,3 @@
+ALTER TABLE "research_notes" ADD COLUMN "request_id" uuid DEFAULT gen_random_uuid() NOT NULL;--> statement-breakpoint
+ALTER TABLE "research_notes" ADD CONSTRAINT "research_notes_proposal_version_id_guild_id_round_id_proposal_versions_id_guild_id_round_id_fk" FOREIGN KEY ("proposal_version_id","guild_id","round_id") REFERENCES "public"."proposal_versions"("id","guild_id","round_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "research_notes" ADD CONSTRAINT "note_author_request" UNIQUE("author_id","request_id");

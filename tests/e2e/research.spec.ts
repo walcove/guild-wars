@@ -1,0 +1,22 @@
+import {test,expect} from '@playwright/test';
+import {Pool} from 'pg';
+import {systemClock} from '../../src/domain/clock';
+import {requireTestDatabaseUrl} from '../../src/server/db/test-target';
+import {transaction} from '../../src/server/db/client';
+import {createSession} from '../../src/server/auth/sessions';
+import {syntheticGuild} from '../integration/helpers/fixtures';
+let db:Pool;
+test.beforeAll(()=>{db=new Pool({connectionString:requireTestDatabaseUrl(process.env.TEST_DATABASE_URL),max:2});});
+test.afterAll(async()=>{await db?.end();});
+for(const width of [390,1360])test(`private research and numeric outcomes at ${width}px`,async({page,context})=>{
+ const f=await syntheticGuild(db),session=await transaction(db,tx=>createSession(tx,f.userId,systemClock));
+ await context.addCookies([{name:'gw_session',value:session.sessionToken,url:'http://127.0.0.1:3000',httpOnly:true,sameSite:'Lax'},{name:'gw_csrf',value:session.csrfToken,url:'http://127.0.0.1:3000',httpOnly:true,sameSite:'Lax'}]);
+ await page.setViewportSize({width,height:1000});const base=`/guilds/${f.guildId}/rounds/${f.roundId}`;
+ await page.goto(base+'/research');await expect(page.getByRole('heading',{name:'Sell a covered call, or keep holding SOL?'})).toBeVisible();await expect(page.getByRole('heading',{name:'Keep holding SOL',exact:true})).toBeVisible();
+ await expect(page.getByText(/SOL price\/history display and cache rights/)).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+ await page.getByLabel('Original source URL',{exact:true}).fill('https://status.solana.com/');await page.getByLabel('What does the source support?').fill('Synthetic browser test evidence only');await page.getByLabel('What is uncertain?').fill('All values are synthetic');await page.getByLabel('Your interests or positions').fill('No real funds or position');
+ await page.getByRole('button',{name:'Save evidence',exact:true}).click();await expect(page.getByText('Evidence saved. It is a contribution, not an approved trade.')).toBeVisible();await expect(page.getByRole('heading',{name:'Synthetic browser test evidence only'})).toBeVisible();
+ await page.screenshot({path:`.local/screenshots/research-${width}.png`,fullPage:true});
+ await page.getByRole('link',{name:'Compare hypothetical outcomes',exact:true}).click();await expect(page.getByRole('heading',{name:'What happens if SOL moves?'})).toBeVisible();await page.getByRole('radio',{name:'Keep holding SOL'}).check();await expect(page.getByText('Holding keeps all price gains and losses and receives no option premium.')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+ await page.screenshot({path:`.local/screenshots/outcomes-${width}.png`,fullPage:true});
+});

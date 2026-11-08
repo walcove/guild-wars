@@ -22,13 +22,13 @@ export async function mutationSession(request:NextRequest){
  assertCsrf(request.headers.get('origin'),process.env.APP_ORIGIN??'http://127.0.0.1:3000',request.headers.get('x-gw-csrf'),session.csrfHash);
  return {token,session};
 }
-export async function body<T>(request:NextRequest,schema:z.ZodType<T>):Promise<T> {
- const text=await readLimitedText(request,8192);
+export async function body<T>(request:NextRequest,schema:z.ZodType<T>,maxBytes=8192):Promise<T> {
+ const text=await readLimitedText(request,maxBytes);
  try{return schema.parse(JSON.parse(text));}catch{throw new DomainError('invalid_input','Check the connection request and retry');}
 }
 export function httpError(error:unknown):NextResponse {
  if(error instanceof DomainError) {
-  const status=['invalid_session','unauthorized'].includes(error.code)?401:error.code==='csrf'?403:error.code==='rate_limited'?429:error.code==='unavailable'?503:error.code==='invalid_input'?400:409;
+  const status=['invalid_session','unauthorized'].includes(error.code)?401:['csrf','forbidden'].includes(error.code)?403:error.code==='rate_limited'?429:error.code==='unavailable'?503:error.code==='invalid_input'?400:409;
   return privateJson({error:error.code,message:error.message},status);
  }
  console.error(JSON.stringify({component:'request',event:'service_error'}));return privateJson({error:'unavailable',message:'The service is unavailable. Your input was retained; retry when connected.'},503);

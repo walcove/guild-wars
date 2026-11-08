@@ -43,6 +43,23 @@ jobs:
       - run: npm run test:integration
   browser:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16.11
+        env:
+          POSTGRES_USER: guild_wars_migrator
+          POSTGRES_PASSWORD: local_migration_only
+          POSTGRES_DB: guild_wars_test
+        ports: ["54329:5432"]
+        options: >-
+          --health-cmd "pg_isready -U guild_wars_migrator -d guild_wars_test"
+          --health-interval 2s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgresql://guild_wars_migrator:local_migration_only@127.0.0.1:54329/guild_wars_test
+      DATABASE_URL: postgresql://guild_wars_app:local_app_only@127.0.0.1:54329/guild_wars_test
+      GW_DATA_ENABLED: "false"
+      GW_TELEGRAM_SENDING_ENABLED: "false"
+      GW_LIVE_PREPARATION_ENABLED: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,6 +68,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - run: psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/init-test.sql
+      - run: npm run db:migrate:test
+      - run: npm run db:worker:migrate:test
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()

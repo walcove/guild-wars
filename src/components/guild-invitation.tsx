@@ -2,7 +2,8 @@
 import {useState} from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
-export async function browserJson(url:string){const r=await fetch(url,{cache:'no-store'}),data=await r.json();if(!r.ok)throw Error(data.message);return data;}
+export class BrowserRequestError extends Error {constructor(message:string,readonly status:number){super(message);}}
+export async function browserJson(url:string){const r=await fetch(url,{cache:'no-store'}),data=await r.json();if(!r.ok){if(r.status===401||r.status===403)window.dispatchEvent(new Event('gw:access-lost'));throw new BrowserRequestError(data.message,r.status);}return data;}
 export async function guildMutation(url:string,input:unknown,csrf:string){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-GW-CSRF':csrf},body:JSON.stringify(input)}),data=await r.json();if(!r.ok)throw Error(data.message??'Action was not confirmed. Retry safely.');return data;}
 export function GuildInvitation({token}:{token:string}) {
  const {data:account,error}=useSWR('/api/account/session',browserJson,{shouldRetryOnError:false});

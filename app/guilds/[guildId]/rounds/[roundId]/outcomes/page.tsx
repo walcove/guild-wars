@@ -1,0 +1,7 @@
+import Link from 'next/link';
+import {AppShell} from '@/src/components/navigation/app-shell';
+import {OutcomeExplorer} from '@/src/components/research/outcome-explorer';
+import {pageUser} from '@/src/server/auth/page-session';
+import {getPool} from '@/src/server/db/client';
+import {readRound} from '@/src/server/services/rounds';
+export default async function Page({params}:{params:Promise<{guildId:string;roundId:string}>}){const {guildId,roundId}=await params,base=`/guilds/${guildId}/rounds/${roundId}`,user=await pageUser(base+'/outcomes'),view=await readRound(getPool(),user,guildId,roundId),name=(await getPool().query<{name:string}>('SELECT name FROM guilds WHERE id=$1',[guildId])).rows[0].name;return <AppShell guild={name} guildId={guildId} context={`${view.round.mode==='simulation'?'Simulation':'Real trading'} · Round ${view.round.number} · ${view.round.state.replaceAll('_',' ')}`}><Link href={base+'/research'}>Back to this round’s research</Link><h1>What happens if SOL moves?</h1><p>This fixed teaching example is separate from your round’s contracts. Actual round expiration: {view.round.expires_at.toUTCString()}. No provider quote or supported contract size is assumed.</p><OutcomeExplorer/><p className="status-notice">A tradable draft needs verified provider terms and fees. No provider contract is available yet.</p><Link href={base+'/research'}>Add evidence and return to discussion</Link></AppShell>;}

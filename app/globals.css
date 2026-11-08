@@ -4,3 +4,4 @@
 
 fieldset { border:0; padding:0; margin:24px 0; min-width:0; } legend { font-size:24px; margin-bottom:16px; } .numeric-list>section { border-top:1px solid var(--line); padding-top:16px; min-width:0; } .numeric-list dt { color:var(--muted); } .numeric-list dd { margin:8px 0 16px; }
 .context-bar span { min-width:0; overflow-wrap:anywhere; } .guild-nav { flex-wrap:wrap; } li { overflow-wrap:anywhere; }
+.checkbox { display:flex; align-items:center; gap:12px; } .checkbox input { width:20px; min-height:20px; } textarea { resize:vertical; } article { margin-bottom:24px; } article p { overflow-wrap:anywhere; } .payoff-plot { max-width:640px; margin-block:24px; } .payoff-plot svg { width:100%; height:auto; } .payoff-plot text { fill:var(--on-surface); font:14px 'Hanken Grotesk',sans-serif; } #understand,#evidence { scroll-margin-top:24px; }
