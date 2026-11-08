@@ -9,3 +9,9 @@ Tests: two missing-component REDs → 2 unit passes; cache/draft invalidation te
 Two reproduced PostgreSQL cases showed that a simulation writer could label synthetic result/hourly inputs as permitted reference. Writers now require an approved, source-specific derived-use grant for non-synthetic display, retention and calculation; a claimed reference string cannot grant permission. The approved grant registry is empty because Task 0 permissions are unavailable. Research outcome sources use the same permission boundary. Synthetic source data remains teaching-only. The three affected service suites pass 14/14 after the fix.
 
 `npm run verify` after these changes passes 117 unit cases, TypeScript, lint, web build and worker check. No new external access, approval, live adapter or funding capability was added. Logs: `.local/task27-private-*` and `.local/task27-source-class-*`.
+
+## Late session-status response regression
+
+Two actual HTTP browser cases reproduced authentication-cookie writes on status reads, including a revoked old session replacing a newer authenticated browser with a guest. A valid status read now never echoes the authentication cookie. An invalid-session GET returns 401 without creating a guest or writing that cookie. Only an explicit same-origin restart creates a guest, and a valid newer session is retained. The connection screen can restart an expired browser while keeping the exact destination and clearing old private state.
+
+Both browser regressions pass. The additional connection component recovery case passes (3/3 target); `npm run verify` now passes 118 units plus TS/lint/web/worker builds. Test assertions report booleans rather than cookie values. Logs: `.local/task27-session-*`.
