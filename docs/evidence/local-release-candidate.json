@@ -1,0 +1,40 @@
+{
+  "implementationRevision": "6fcc8134797b110a87773a28a7c67a4a917adeae",
+  "manifest": {
+    "status": "local-disabled-candidate",
+    "revision": "6fcc8134797b110a87773a28a7c67a4a917adeae",
+    "webBuildId": "rVPLCN3tqIE0TCiIfLjwy",
+    "workerSha256": "98a31eda9362a9395d4713e73a27892c5757b4c8ff36e02ce1575e4928b511e8",
+    "lockSha256": "421caa614ef016b42996a335ad3c687b9a9bd767841f8c938da06711dd870107",
+    "migrationsSha256": "f71fbedeb88525d09282a6577a940a4bb65d1ae39d31cdc744b47fb63a591be7",
+    "webCommand": "npm run start",
+    "workerCommand": "node worker.mjs",
+    "dependencyCommand": "npm ci --omit=dev",
+    "flags": {
+      "live": false,
+      "telegram": false,
+      "data": false,
+      "pauseNewPreparation": true
+    },
+    "host": null,
+    "httpsOrigin": null,
+    "releaseAuthorized": false
+  },
+  "verifiedSmoke": {
+    "revision": "6fcc8134797b110a87773a28a7c67a4a917adeae",
+    "webBuildId": "rVPLCN3tqIE0TCiIfLjwy",
+    "loopbackPackagedWeb": true,
+    "homepage": true,
+    "staticCssAndJavaScript": true,
+    "securityHeaders": true,
+    "liveness": 200,
+    "readinessWithoutHealthyWorker": 503,
+    "publicHealthKeys": [
+      "status"
+    ],
+    "packagedWorkerCheck": true,
+    "externalSending": false,
+    "limitations": "Fresh npm ci --omit=dev installed 199 packages in this candidate; both compiled services resolve its own dependencies. Selected hosted runtime remains unverified. No daemon worker or production service was started."
+  },
+  "scope": "Local disabled candidate only; no host, deployment, native provider proof or release approval. Final documentation may follow this code revision without runtime changes."
+}
