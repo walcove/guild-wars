@@ -1,0 +1,18 @@
+Native fresh-context pass. These are plan gaps, not observed production bugs.
+
+1. **P1 · Confidence 8/10 — Reserve covered assets across intents and sleeves.**
+   Plan **line 612**: “An intentional new trade requires a new reviewed intent.” Plan **line 573** registers the eligible SOL allocation, but neither specifies atomic reservation against existing, partially filled, or Unknown orders. Per-intent idempotency does not prevent two separately reviewed intents from claiming the same cover or allocating one provider position to multiple sleeves.
+   **Remedy:** Add account/instrument-level asset reservations and exclusive sleeve attribution. Atomically verify available cover when preparing an opening intent; retain reservations for uncertain/unfilled commitments until authoritative cancellation or reconciliation releases them. Test concurrent different-intent requests against the same allocation.
+   **End workflow change:** No; preserves individual authorization and records deliberate deviations honestly.
+
+2. **P2 · Confidence 9/10 — Quote expiration does not bound an outstanding order’s lifetime.**
+   Plan **line 321**: “execution window no longer than 60 minutes.” Plan **line 593** enforces “quote TTL,” while **line 625** recognizes partial fills. The plan never requires an outstanding provider order to expire or be reconciled/cancelled at the execution cutoff. A validly authorized order can remain open after its quote was accepted and fill outside the ranked window.
+   **Remedy:** Include supported time-in-force, cancellation and terminal-status evidence in Gate 0. Use provider-enforced expiration where available; otherwise define cancellation/reconciliation at cutoff and keep uncertain or late fills provisional with actual timestamps. Cancellation needing member authority must use the supported authorization path. Add partial-fill-at-cutoff and cancellation-timeout cases.
+   **End workflow change:** No.
+
+3. **P2 · Confidence 8/10 — Rolls beyond the weekly boundary lack an eligibility and capital-reuse rule.**
+   Plan **line 646** permits “roll” with revised payoff; spec **line 148** explicitly allows “rolling up or out.” Yet spec **line 51** defers “multiple expirations within a round,” and plan **line 680** compounds independent weekly sleeve returns. An out-of-round obligation or delayed settlement cannot safely become a completed weekly result or available cover for the next round.
+   **Remedy:** Freeze a management horizon policy. Retain rolled/settlement-pending liabilities and reserved assets until authoritative resolution; prevent reuse in the next sleeve. Treat management beyond the comparison horizon as a recorded personal deviation and provisional guild result, while preserving provider management access and the actual account history. Test a roll past the next opening and settlement overlapping two rounds.
+   **End workflow change:** No; existing management remains available.
+
+**Recommendation: apply these three clarifications before implementation because they close cross-intent accounting and time-boundary gaps without changing the agreed member workflows.**
