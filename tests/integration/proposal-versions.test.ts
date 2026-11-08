@@ -31,3 +31,8 @@ it('protects unshared drafts, mismatched expiry and forwarded private proposal v
  await db.query("UPDATE memberships SET status='suspended' WHERE guild_id=$1 AND user_id=$2",[a.guildId,b.userId]);
  await expect(readProposal(db,b.userId,p.id,v.id)).rejects.toMatchObject({code:'forbidden'});
 });
+it('binds proposal provider and full reference coverage to the frozen season rules',async()=>{
+ const f=await syntheticGuild(db),otherProvider:PlanCatalog={resolve:async(r,s)=>{const c=await catalog.resolve(r,s);return {...c,terms:{...c.terms,providerId:'unapproved-provider'}};}},wrongReference:PlanCatalog={resolve:async(r,s)=>{const c=await catalog.resolve(r,s);return {...c,reserveLamports:'0',referenceLamports:'10000000000'};}};
+ await expect(saveDraft(db,f.userId,f.guildId,f.roundId,{requestId:randomUUID(),draft},otherProvider)).rejects.toMatchObject({code:'provider_mismatch'});
+ await expect(saveDraft(db,f.userId,f.guildId,f.roundId,{requestId:randomUUID(),draft},wrongReference)).rejects.toMatchObject({code:'reference_mismatch'});
+});

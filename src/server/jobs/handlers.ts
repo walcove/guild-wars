@@ -1,3 +1,4 @@
+import {closeBallot} from '../services/ballots';
 import {deliverProposal} from './publish-telegram';
 import {refreshMarket} from './refresh-market';
 import {deliverCommand} from '../telegram/commands';
@@ -5,11 +6,11 @@ import {telegramConfiguration,telegramTransport} from '../telegram/bot';
 import {run,type TaskList} from 'graphile-worker';
 import type {Pool} from 'pg';
 import {transaction} from '../db/client';
-import {recoverDue,recoverPublishedRounds} from './scheduler';
+import {recoverDue,recoverPublishedRounds,recoverPreparedBallots,recoverMissingBallots} from './scheduler';
 import {tasks} from './queue';
 import {lane,budgets,workerPools} from './budgets';
 export function handlers(db:Pool,partition:'critical'|'background',installed:TaskList={}):TaskList {
- return Object.fromEntries(tasks.filter(task=>lane(task)===partition).map(task=>[task,installed[task]??(task==='deliver_telegram'?async(payload:unknown)=>{await deliverProposal(db,(payload as {deliveryId:string}).deliveryId,telegramConfiguration(),telegramTransport());}:task==='refresh_market'?async()=>{await refreshMarket(db);}:task==='telegram_command'?async(payload:unknown)=>{await deliverCommand(db,(payload as {operationId:string}).operationId,telegramConfiguration(),telegramTransport());}:task==='recover_due'?async()=>{await recoverPublishedRounds(db);await transaction(db,recoverDue);}:async()=>{throw new Error(`Handler ${task} is not installed; operation retained for retry`);})]));
+ return Object.fromEntries(tasks.filter(task=>lane(task)===partition).map(task=>[task,installed[task]??(task==='close_ballot'?async(payload:unknown)=>{await closeBallot(db,(payload as {ballotId:string}).ballotId);}:task==='deliver_telegram'?async(payload:unknown)=>{await deliverProposal(db,(payload as {deliveryId:string}).deliveryId,telegramConfiguration(),telegramTransport());}:task==='refresh_market'?async()=>{await refreshMarket(db);}:task==='telegram_command'?async(payload:unknown)=>{await deliverCommand(db,(payload as {operationId:string}).operationId,telegramConfiguration(),telegramTransport());}:task==='recover_due'?async()=>{await recoverPublishedRounds(db);await recoverPreparedBallots(db);await recoverMissingBallots(db);await transaction(db,recoverDue);}:async()=>{throw new Error(`Handler ${task} is not installed; operation retained for retry`);})]));
 }
 export async function startJobRunners(connectionString:string,installed:TaskList={}) {
  const pools=workerPools(connectionString);

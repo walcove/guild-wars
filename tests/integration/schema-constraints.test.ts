@@ -20,9 +20,10 @@ it('enforces identity, tenant, mode, vote, fill and ledger constraints on actual
   await client.query("INSERT INTO cohort_members(id,season_id,guild_id,user_id,division,consents) VALUES($1,$2,$3,$4,'synthetic','{}'),($5,$2,$3,$6,'synthetic','{}'),($7,$8,$3,$4,'synthetic','{}')",[cohort,s,g,u,otherCohort,u2,laterCohort,laterSeason]);
   await expectConstraint(client,"INSERT INTO rounds(guild_id,season_id,mode,number,state,schedule,expires_at) VALUES($1,$2,'live',2,'research','{}','2026-11-14T08:00:00Z')",[g,s]);
   await expectConstraint(client,"INSERT INTO proposals(guild_id,round_id,author_id,draft) VALUES($1,$2,$3,'{}')",[randomUUID(),r,u]);
-  await client.query("INSERT INTO ballots(id,guild_id,round_id,state,kind,opens_at,closes_at) VALUES($1,$2,$3,'voting','opening','2026-11-07T00:00:00Z','2026-11-07T12:00:00Z')",[b,g,r]);
+  await client.query("INSERT INTO ballots(id,guild_id,round_id,state,kind,opens_at,closes_at) VALUES($1,$2,$3,'prepared','opening','2026-11-07T00:00:00Z','2026-11-07T12:00:00Z')",[b,g,r]);
   await client.query('INSERT INTO ballot_roster(ballot_id,user_id) VALUES($1,$2)',[b,u]);
   await client.query("INSERT INTO ballot_choices(id,ballot_id,guild_id,round_id,label) VALUES($1,$2,$3,$4,'Keep holding')",[c,b,g,r]);
+  await client.query("UPDATE ballots SET state='voting' WHERE id=$1",[b]);
   await client.query('INSERT INTO votes(ballot_id,user_id,choice_id,revision,saved_at) VALUES($1,$2,$3,1,clock_timestamp())',[b,u,c]);
   await expectConstraint(client,'INSERT INTO votes(ballot_id,user_id,choice_id,revision,saved_at) VALUES($1,$2,$3,1,clock_timestamp())',[b,u,c]);
   await client.query("INSERT INTO sleeves(id,guild_id,round_id,user_id,season_id,account_id,cohort_member_id,mode,allocation_lamports,reserve_lamports,verification) VALUES($1,$2,$3,$4,$5,$6,$7,'simulation',10000000000,10000000,'{}')",[sl,g,r,u,s,account,cohort]);

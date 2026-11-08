@@ -8,7 +8,7 @@ export async function applyMembershipEvent(tx:Tx,event:MembershipEvent,botEvent:
   if(member.user.id.toString()!==botId)return;
   if(['administrator','creator'].includes(member.status))return; // Restoration always needs fresh dual administration proof.
   // Ballot services take this same row lock before accepting a vote. Existing votes remain immutable evidence.
-  await tx.query('SELECT id FROM ballots WHERE guild_id=$1 AND state IN (\'open\',\'published\') ORDER BY id FOR UPDATE',[binding.guild_id]);
+  await tx.query('SELECT id FROM ballots WHERE guild_id=$1 AND state IN (\'prepared\',\'voting\') ORDER BY id FOR UPDATE',[binding.guild_id]);
   await tx.query('UPDATE group_bindings SET active=false WHERE guild_id=$1',[binding.guild_id]);
   await audit(tx,{guildId:binding.guild_id,kind:'group_access_lost',recordId:binding.guild_id,reason:'Bot administration lost; binding paused and new actions fail closed'});
  } else if(['left','kicked'].includes(member.status)||(member.status==='restricted'&&!member.is_member)) {
