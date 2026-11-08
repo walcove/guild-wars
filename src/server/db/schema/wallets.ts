@@ -1,0 +1,5 @@
+import {pgTable,text,uuid,timestamp,unique} from 'drizzle-orm/pg-core';
+import {id,createdAt} from './common';
+import {users,sessions} from './identity';
+export const walletChallenges=pgTable('wallet_challenges',{nonceHash:text('nonce_hash').primaryKey(),sessionHash:text('session_hash').notNull().references(()=>sessions.tokenHash),userId:uuid('user_id').notNull().references(()=>users.id),address:text('address').notNull(),proofType:text('proof_type').notNull(),origin:text('origin').notNull(),message:text('message').notNull(),expiresAt:timestamp('expires_at',{withTimezone:true,mode:'string'}).notNull(),consumedAt:timestamp('consumed_at',{withTimezone:true,mode:'string'}),createdAt:createdAt()});
+export const walletLinks=pgTable('wallet_links',{id:id(),userId:uuid('user_id').notNull().references(()=>users.id),address:text('address').notNull().unique(),proofHash:text('proof_hash').notNull(),proofType:text('proof_type').notNull(),createdAt:createdAt()},t=>[unique('wallet_owner_address').on(t.userId,t.address)]);
