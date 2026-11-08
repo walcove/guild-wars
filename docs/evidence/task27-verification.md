@@ -15,3 +15,5 @@ Two opening-roster regressions reproduced delayed activation changing the denomi
 Crash/backlog fixtures now use unique library task identifiers, so reruns cannot consume another fixture's pending work. Actual worker SIGKILL/replay still verifies exactly one financial effect. No private Graphile table mutation or global queue clearing is used.
 
 Verification before final review: `npm run verify` → 122 unit tests, types/lint, web and worker builds; full PostgreSQL suite →125/125; contracts →18/18; production Chromium suite →38/38. Subsequent review fixes must update this record. Raw commands/output are retained under ignored `.local` logs; the canonical checklist records final revisions.
+
+Final fix-pass totals supersede the checkpoint counts above: verify128 units/builds, PostgreSQL139/139, contracts18/18, production Chromium41/41, load1/1. All9 regraded Important findings were implemented and checked in one pass, with no second reviewer. Actual native/provider/pilot capabilities remain unverified. The whole browser suite caught and verified fixes for the audit JSON reflow and duplicated mobile deadline pushing the primary action below the first viewport.

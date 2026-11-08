@@ -16,3 +16,5 @@ fieldset { border:0; padding:0; margin:24px 0; min-width:0; } legend { font-size
 
 /* Control boundaries need 3:1 contrast independent of decorative dividers. */
 input,select,textarea { border-color:#71818a; }
+
+.audit-record { white-space:pre-wrap; overflow-wrap:anywhere; max-width:100%; font-size:16px; }

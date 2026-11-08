@@ -1,6 +1,6 @@
 # Regular Telegram bot development
 
-No bot token or HTTPS test webhook has been supplied, so native Telegram checks remain unavailable. Current tests inject synthetic updates and an in-memory transport; they make no Telegram network requests. This is a regular community bot, not a Mini App, and it never emits `web_app` buttons.
+No bot token or HTTPS test webhook has been supplied, so native Telegram checks remain unavailable. Current tests inject original synthetic updates through both unit ports and a loopback grammY HTTP transport; they make no Telegram network requests. This is a regular community bot, not a Mini App, and it never emits `web_app` buttons.
 
 For an authorized native check, use a separate development bot and group, set its token/username and a random 32–256-character webhook secret in local secret configuration, and explicitly enable `GW_TELEGRAM_SENDING_ENABLED=true` for that bot only. Default is false. HTTPS webhook setup is an operator step; no production webhook is configured by install, build or tests. The webhook is `/api/telegram/webhook` and authenticates Telegram's secret header before parsing a bounded body. Do not put production tokens into local fixture runs.
 

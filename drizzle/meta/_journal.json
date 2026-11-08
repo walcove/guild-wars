@@ -253,6 +253,13 @@
       "when": 1794134627940,
       "tag": "0035_watery_steel_serpent",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1794137951423,
+      "tag": "0036_stormy_wallop",
+      "breakpoints": true
     }
   ]
 }

@@ -37,11 +37,11 @@
   "providerMax": 3,
   "backgroundMax": 3,
   "latencyMs": {
-    "statusP95": 258.66762500000004,
-    "statusMax": 270.62304199999994,
-    "voteTransactionP95": 130.0982079999999,
-    "closeP95": 30.302959000000556,
-    "queueLagMax": 9204
+    "statusP95": 278.9888749999998,
+    "statusMax": 291.63312499999984,
+    "voteTransactionP95": 132.93324999999982,
+    "closeP95": 35.68833300000006,
+    "queueLagMax": 9343
   },
   "limitations": "HTTP pollers emulate visible clients; vote transactions use the shared SQL service through a separately identified test-driver pool. This is not native Telegram, provider or production capacity evidence."
 }

@@ -1,7 +1,7 @@
 {
   "evidence": "Fresh generated local database; all application migrations and idempotent replay; existing disposable cluster roles only",
-  "database": "guild_wars_migrations_806ecae838444d51",
-  "migrations": 36,
+  "database": "guild_wars_migrations_e69a8769ffec45ce",
+  "migrations": 37,
   "checks": {
     "history_write": false,
     "health_write": false,

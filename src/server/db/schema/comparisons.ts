@@ -1,0 +1,6 @@
+import {pgTable,uuid,text,jsonb,unique,index,check} from 'drizzle-orm/pg-core';
+import {sql} from 'drizzle-orm';
+import {id,createdAt} from './common';
+import {rounds,seasons} from './rounds';
+export const paperComparisons=pgTable('paper_comparisons',{id:id(),roundId:uuid('round_id').notNull().references(()=>rounds.id),kind:text('kind').notNull(),revision:text('revision').notNull(),inputHash:text('input_hash').notNull(),record:jsonb('record').notNull(),createdAt:createdAt()},t=>[unique('paper_source_revision').on(t.roundId,t.kind,t.revision),index('paper_latest').on(t.roundId,t.kind,t.createdAt,t.id),check('paper_kind',sql`${t.kind} in ('normalized_plan','house')`)]);
+export const comparisonPublications=pgTable('comparison_publications',{id:id(),seasonId:uuid('season_id').notNull().references(()=>seasons.id),kind:text('kind').notNull(),divisionKey:text('division_key').notNull(),revision:text('revision').notNull(),inputHash:text('input_hash').notNull(),record:jsonb('record').notNull(),createdAt:createdAt()},t=>[unique('comparison_publication_revision').on(t.seasonId,t.kind,t.revision),index('comparison_division_latest').on(t.divisionKey,t.kind,t.seasonId,t.createdAt,t.id),check('comparison_kind',sql`${t.kind} in ('normalized_plan','cohort')`)]);

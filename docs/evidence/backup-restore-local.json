@@ -1,67 +1,303 @@
 {
   "evidence": "Original synthetic local database only; no external provider, production bot or funded state",
-  "database": "guild_wars_restore_aa41835129804b28",
-  "dumpSha256": "483afaec6499d93bf9bf21f2d3567fd9dd946056583622ca4de49021788ffb26",
+  "database": "guild_wars_restore_04ebd7f06469415d",
+  "dumpSha256": "499c3d6e61a9d709e410d303f2a8b7f925e99d1a767b6056da6bf35d526a15f5",
   "tables": {
-    "ledger_events": {
-      "count": 1210,
-      "hash": "3e193045fa4eba1295d18cdd6f8bab26"
+    "audit_events": {
+      "count": 1669,
+      "hash": "d1c4f4b303e3eb759965ac22318dcf4e"
     },
-    "fills": {
-      "count": 239,
-      "hash": "be0a827324addb2709382d1c2effbc4f"
+    "award_decisions": {
+      "count": 0,
+      "hash": "d41d8cd98f00b204e9800998ecf8427e"
     },
-    "provider_observations": {
-      "count": 709,
-      "hash": "2c136bbcb670822f0dd3aa4b66ca9c0d"
+    "ballot_choices": {
+      "count": 1476,
+      "hash": "380f6c5fc313fb07edab540a040fd705"
     },
-    "order_intents": {
-      "count": 594,
-      "hash": "df2b6dc6eb240833cf401c96b0f17864"
-    },
-    "reservations": {
-      "count": 319,
-      "hash": "522efc0971a3b80c7fb7fab37daa754f"
-    },
-    "positions": {
-      "count": 240,
-      "hash": "83418b442efc421685b7840c44b01872"
-    },
-    "ballots": {
-      "count": 620,
-      "hash": "6b4059366b5f3efc40f0b0ea281be210"
-    },
-    "votes": {
-      "count": 376,
-      "hash": "113b5779731a2a5502f9add49b5113e0"
-    },
-    "round_roster": {
-      "count": 641,
-      "hash": "19371b0100c7335d8938e60aa09318d9"
+    "ballot_deliveries": {
+      "count": 637,
+      "hash": "318cd74ebbaa8a068fbd928f697699f8"
     },
     "ballot_roster": {
-      "count": 597,
-      "hash": "292a202671d55df7cc6d97c343a05c28"
+      "count": 957,
+      "hash": "e62c03abed49ca477e9c0f852c0cc031"
+    },
+    "ballots": {
+      "count": 977,
+      "hash": "9f21003a63e24cdb4286753df6784e38"
+    },
+    "bot_starts": {
+      "count": 106,
+      "hash": "31cd6fce875556c34634d7f4e9e4ec02"
+    },
+    "bounties": {
+      "count": 16,
+      "hash": "1c5c6d3fbb3360f5de9ffebec9ea0a94"
+    },
+    "callback_tokens": {
+      "count": 1227,
+      "hash": "3064ad32ff56706608570fff996bf0d1"
+    },
+    "cohort_members": {
+      "count": 90,
+      "hash": "ce75ed2c8f5ac0a5a703f0302221b1c6"
+    },
+    "cohort_verification_events": {
+      "count": 73,
+      "hash": "d2d47a38cd440cd2360bff156e428521"
+    },
+    "cohort_week_claims": {
+      "count": 320,
+      "hash": "98d1c8665d99c52fcdf34dd16464c1cc"
+    },
+    "comparison_publications": {
+      "count": 40,
+      "hash": "893aa9008fbab014718c2bdd1930b1f0"
+    },
+    "consumed_updates": {
+      "count": 473,
+      "hash": "ce4fd8c1ba8407b67111088d5b6397bb"
+    },
+    "curated_events": {
+      "count": 28,
+      "hash": "b4d895cee725cd1842caf1c4b688238b"
+    },
+    "fill_revisions": {
+      "count": 397,
+      "hash": "24f536880f843926bf85f7bbc1376899"
+    },
+    "fills": {
+      "count": 361,
+      "hash": "044409a511b025e9bab04fd459c7c35a"
+    },
+    "forecast_registrations": {
+      "count": 105,
+      "hash": "9e3eb928bfc76f5f23808c6cf7aaa65a"
+    },
+    "forecast_resolutions": {
+      "count": 16,
+      "hash": "368da6afc9b4b80c601f2858fab52003"
+    },
+    "forecasts": {
+      "count": 717,
+      "hash": "8ebabe057e38b292ddf883e805768842"
+    },
+    "group_bindings": {
+      "count": 1066,
+      "hash": "3d5a02b3d7f328189dd1363fd56df3c2"
+    },
+    "guild_invitations": {
+      "count": 83,
+      "hash": "b5c8837774b75560fdceab30a806b855"
+    },
+    "guilds": {
+      "count": 3740,
+      "hash": "5ff584518fd4b982bc481df1ec814cc9"
+    },
+    "house_decisions": {
+      "count": 720,
+      "hash": "f5f66cca6be16b5fc64c229bdc13cee4"
+    },
+    "ledger_events": {
+      "count": 1717,
+      "hash": "53f62f08fc506956d60ffb91b7f9ffe2"
+    },
+    "link_challenges": {
+      "count": 417,
+      "hash": "9f8060eea168b70121674b5e015bd557"
+    },
+    "live_sleeve_registrations": {
+      "count": 327,
+      "hash": "95ae65b0d27f97e78bf40a22b24f8e14"
     },
     "membership_history": {
-      "count": 3330,
-      "hash": "cb6a153604762e674dd7a3da2ec6c4b6"
+      "count": 4602,
+      "hash": "7a3d502e1de1ba93f5996d2115e40623"
     },
-    "result_snapshots": {
-      "count": 35,
-      "hash": "3039f9275738068b735253284247360d"
+    "membership_history_coverage": {
+      "count": 1,
+      "hash": "17f0be0574e329a22ae7d5814ce9706c"
     },
-    "score_revisions": {
-      "count": 33,
-      "hash": "90bb09b0a91a3608c00682950734a9ec"
-    },
-    "audit_events": {
-      "count": 1285,
-      "hash": "4d2ae0a6261e1b6661f4a05adc300122"
+    "memberships": {
+      "count": 4465,
+      "hash": "4c9f8e85689e62c56c55e05489bf6d77"
     },
     "operations": {
-      "count": 2511,
-      "hash": "5bba57da146b15b2aba1e5e4fe9468cb"
+      "count": 3366,
+      "hash": "334e315e746a1d4ed77450aff3bebc77"
+    },
+    "order_intents": {
+      "count": 840,
+      "hash": "07fcc6b02bcc62a6f9dd4a8031b1f131"
+    },
+    "paper_comparisons": {
+      "count": 265,
+      "hash": "ec1a39ab3a0182936f9849b4c626779c"
+    },
+    "positions": {
+      "count": 742,
+      "hash": "4f7929c3310cdda58920141d726d2f25"
+    },
+    "proposal_annotations": {
+      "count": 0,
+      "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "proposal_versions": {
+      "count": 5096,
+      "hash": "537beae9652352b3f55f1897a099da40"
+    },
+    "proposals": {
+      "count": 5199,
+      "hash": "d04ffc860b6da2be00cfca00c67198cf"
+    },
+    "provider_accounts": {
+      "count": 977,
+      "hash": "693ca1c45fe4dffd861b6dd8f09ee4f4"
+    },
+    "provider_observations": {
+      "count": 948,
+      "hash": "41675142a846c9726fef82c9b235c48b"
+    },
+    "public_market_cache": {
+      "count": 87,
+      "hash": "ae3ecb4169de6249e3cacb6e009c0ab9"
+    },
+    "quotes": {
+      "count": 0,
+      "hash": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "recognition_events": {
+      "count": 32,
+      "hash": "5ed091dff79b45ae484ef7e5dd40fd61"
+    },
+    "reconciliation_issues": {
+      "count": 184,
+      "hash": "60223555fe44c39c0bdb3912cd17ad6a"
+    },
+    "reconciliation_resolutions": {
+      "count": 97,
+      "hash": "b774aae0b4623784b2d3a8039f40dd92"
+    },
+    "research_appeals": {
+      "count": 16,
+      "hash": "050750b5c1e299c8e6396c7fbe65b189"
+    },
+    "research_assignment_cycles": {
+      "count": 85,
+      "hash": "8d378943e4ac52b21a6820abadde69a6"
+    },
+    "research_assignments": {
+      "count": 174,
+      "hash": "017f24e7f08dd94231653be214dddc80"
+    },
+    "research_conflicts": {
+      "count": 13,
+      "hash": "bdf5a6f5ce48a2d3b225ba2e72480659"
+    },
+    "research_digest_subscriptions": {
+      "count": 15,
+      "hash": "6fcc131e25233c9602897a9c1dd1b669"
+    },
+    "research_notes": {
+      "count": 220,
+      "hash": "a9366f92f9e7f83a5322c5990ca96048"
+    },
+    "research_outcomes": {
+      "count": 32,
+      "hash": "86f313b2c876604eae947cc2d0ec388d"
+    },
+    "research_reviews": {
+      "count": 73,
+      "hash": "3c79bdbd35524ee9fde0b506c1e06ab3"
+    },
+    "research_revisions": {
+      "count": 250,
+      "hash": "a5099989799d34a641f39af5aedd8e47"
+    },
+    "research_submissions": {
+      "count": 59,
+      "hash": "4f02d24187ff74ac0ec47dbfdd7973bc"
+    },
+    "reservations": {
+      "count": 449,
+      "hash": "a8ed49a8b440e24012e8313a0b5bdac7"
+    },
+    "result_snapshots": {
+      "count": 132,
+      "hash": "0e4822dea03d83c4fd1c2a6dea8fc65f"
+    },
+    "round_events": {
+      "count": 886,
+      "hash": "2400c2ccf2db8784077c8dc60d8a71d6"
+    },
+    "round_roster": {
+      "count": 1015,
+      "hash": "02232ed50b979c873b3d990253fa7bc4"
+    },
+    "rounds": {
+      "count": 6297,
+      "hash": "48df5970040b6d48242b4639bbe391b1"
+    },
+    "score_revisions": {
+      "count": 105,
+      "hash": "b020d5f3e9e2f4b19269de5aac5e3348"
+    },
+    "seasons": {
+      "count": 4262,
+      "hash": "5996f14b8b750aed9245b6e394a6f0e3"
+    },
+    "sessions": {
+      "count": 1575,
+      "hash": "96cd3adc7ba043e04c0c3cc3adc85fd8"
+    },
+    "simulation_bookings": {
+      "count": 235,
+      "hash": "bbcece5d9f3ee00f2e8769bd4b9a3ecd"
+    },
+    "simulation_enrollments": {
+      "count": 141,
+      "hash": "a3edb011f0ab637fda44c45d0f07cdbe"
+    },
+    "simulation_snapshots": {
+      "count": 71,
+      "hash": "2b520a8c8554f6c5a773396c35aee0c7"
+    },
+    "sleeves": {
+      "count": 1004,
+      "hash": "65505f7c4e3eb7d5d5bcab60657763f4"
+    },
+    "telegram_deliveries": {
+      "count": 289,
+      "hash": "886d559133197eae7a020d489fd50cf8"
+    },
+    "users": {
+      "count": 4474,
+      "hash": "14638dd1c307192b42bc2d13af72e528"
+    },
+    "valuation_events": {
+      "count": 156,
+      "hash": "9aacf9b620add0b2d3d12c3a3db30b34"
+    },
+    "vote_events": {
+      "count": 1091,
+      "hash": "6ab6447979fd7e5b8603a6a8269bb2e0"
+    },
+    "votes": {
+      "count": 704,
+      "hash": "6259a52a6f9586b721086175f33078f2"
+    },
+    "wallet_challenges": {
+      "count": 100,
+      "hash": "e8a774a90ad7ddeb6886d72b3abe4ae6"
+    },
+    "wallet_links": {
+      "count": 61,
+      "hash": "dcbd82316bfcb6a6b0173da9cdd5d323"
+    },
+    "worker_health": {
+      "count": 1,
+      "hash": "a4f85cace6cddea3cd6aaa8e4540671f"
     }
   },
   "permissions": {
@@ -70,6 +306,6 @@
     "queue_access": false,
     "queue_owner": true
   },
-  "appendOnlyTriggers": 40,
+  "appendOnlyTriggers": 42,
   "limitations": "Same-cluster local PostgreSQL restore with pre-existing disposable roles. Not managed-host failover, PITR, external-side-effect rollback or production RPO/RTO evidence. Restored database and protected local dump retained for inspection."
 }

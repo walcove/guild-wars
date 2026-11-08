@@ -60,3 +60,6 @@ it('records unranked holding when no opening ballot exists instead of leaving an
  await advanceRound(db,r.id,clock(s.voteOpen));expect(await recoverMissingBallotForRound(db,r.id,clock(s.voteClose))).toBe(true);expect(await recoverMissingBallotForRound(db,r.id,clock(s.voteClose))).toBe(false);
  expect((await db.query('SELECT state FROM rounds WHERE id=$1',[r.id])).rows[0].state).toBe('unranked');expect((await db.query("SELECT record FROM audit_events WHERE record_id=$1 AND kind='round_fallback_recorded'",[r.id])).rows[0].record).toMatchObject({strategy:'hold',notVoteOutcome:true});
 });
+it('does not treat an internal claimed catalog boolean as approved product and settlement evidence',async()=>{
+ const f=await syntheticGuild(db);await expect(createSeason(db,f.userId,f.guildId,input,{kind:'verified_catalog',providerId:'unapproved-original-fixture',expirations:readiness.expirations,gate0Passed:true,dataRightsReference:'not-provider-permission',recordReference:'original-synthetic-claim',feeReserveLamports:'10000000'} as Parameters<typeof createSeason>[4],clock(new Date(start-hour).toISOString()))).rejects.toMatchObject({code:'provider_unavailable'});
+});

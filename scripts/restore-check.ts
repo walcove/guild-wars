@@ -8,13 +8,13 @@ const source=requireTestDatabaseUrl(process.env.TEST_DATABASE_URL),container='gu
 const inspect=spawnSync('docker',['inspect',container,'--format','{{json .Config.Labels}}'],{encoding:'utf8'});if(inspect.status!==0)throw Error('Owned local PostgreSQL container unavailable');const labels=JSON.parse(inspect.stdout);if(labels['com.docker.compose.project']!=='guild-wars-mvp'||labels['com.docker.compose.service']!=='postgres')throw Error('Restore check requires the repository-owned local PostgreSQL container');
 await mkdir(directory,{recursive:true,mode:0o700});
 const db=new Pool({connectionString:source,max:1}),client=await db.connect();let restored:Pool|undefined;
-const tables=['ledger_events','fills','provider_observations','order_intents','reservations','positions','ballots','votes','round_roster','ballot_roster','membership_history','result_snapshots','score_revisions','audit_events','operations'];
-async function fingerprints(pool:Pick<Pool,'query'>|typeof client){const result:Record<string,unknown>={};for(const t of tables)result[t]=(await pool.query(`SELECT count(*)::int count,md5(coalesce(string_agg(row_to_json(t)::text,E'\n' ORDER BY row_to_json(t)::text),'')) hash FROM ${t} t`)).rows[0];return result;}
+const tables:string[]=[];
+async function fingerprints(pool:Pick<Pool,'query'>|typeof client){const result:Record<string,unknown>={};for(const t of tables)result[t]=(await pool.query(`SELECT count(*)::int count,md5(coalesce(string_agg(row_to_json(t)::text,E'\n' ORDER BY row_to_json(t)::text),'')) hash FROM "${t.replaceAll('"','""')}" t`)).rows[0];return result;}
 async function processFile(args:string[],path:string,direction:'dump'|'restore'){
  const file=await open(path,direction==='dump'?'wx':'r',0o600);try{await new Promise<void>((done,reject)=>{const child=spawn('docker',args,{stdio:direction==='dump'?['ignore',file.fd,'pipe']:[file.fd,'ignore','pipe']});let error='';child.stderr!.on('data',chunk=>{error+=String(chunk);});child.once('error',reject);child.once('exit',code=>code===0?done():reject(Error('Local '+direction+' failed: '+error.slice(0,1000))));});}finally{await file.close();}
 }
 try{
- await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');const snapshot=(await client.query('SELECT pg_export_snapshot() snapshot')).rows[0].snapshot,expected=await fingerprints(client),dump=resolve(directory,'synthetic.dump');
+ await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');tables.push(...(await client.query<{table_name:string}>("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name")).rows.map(r=>r.table_name));const snapshot=(await client.query('SELECT pg_export_snapshot() snapshot')).rows[0].snapshot,expected=await fingerprints(client),dump=resolve(directory,'synthetic.dump');
  await processFile(['exec',container,'pg_dump','-U','guild_wars_migrator','-d','guild_wars_test','--format=custom','--snapshot='+snapshot],dump,'dump');await client.query('COMMIT');
  // A generated, previously absent name only. Never drop/replace the source or an existing database.
  await client.query(`CREATE DATABASE "${name}" OWNER guild_wars_migrator`);

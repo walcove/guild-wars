@@ -1,3 +1,4 @@
+import {providerReadGate} from '../providers/read-access';
 import type {Pool} from 'pg';
 import type {Clock} from '../../domain/clock';
 import {invariant} from '../../domain/errors';
@@ -10,19 +11,20 @@ import {audit} from './audit';
 import {membersAtOpening} from './opening-roster';
 export interface SeasonInput {mode:TradingMode;division:string;rulesVersion:string;schedules:RoundSchedule[]}
 // Created only by server catalog/readiness code. HTTP never accepts a readiness object.
-export type SeasonSource={kind:'synthetic';providerId:string;expirations:string[]}|{kind:'verified_catalog';providerId:string;expirations:string[];gate0Passed:true;dataRightsReference:string;recordReference:string;feeReserveLamports:string};
+export type SeasonSource={kind:'synthetic';providerId:string;expirations:string[]}|{kind:'verified_catalog';providerId:string;productId:string;settlement:'physical'|'cash';expirations:string[];gate0Passed:true;dataRightsReference:string;recordReference:string;feeReserveLamports:string};
 export interface RoundRecord {id:string;guild_id:string;season_id:string;mode:TradingMode;number:number;state:RoundState;schedule:RoundSchedule;expires_at:Date;revision:number}
 export async function serverTime(tx:Tx,clock?:Clock):Promise<Date>{return clock?clock.now():(await tx.query<{instant:Date}>('SELECT clock_timestamp() AS instant')).rows[0].instant;}
 export async function createSeason(db:Pool,userId:string,guildId:string,input:SeasonInput,source:SeasonSource,clock?:Clock):Promise<{id:string;rounds:{id:string}[]}> {
  return inGuild(db,userId,guildId,async(tx,scope)=>{
   invariant(scope.membership.role==='administrator','forbidden','An active guild administrator publishes the season timetable');
   invariant(input.mode==='simulation'||(source.kind==='verified_catalog'&&source.gate0Passed),'provider_unavailable','A live season requires verified provider access, permissions and settlement evidence');
+  if(source.kind==='verified_catalog'){invariant(providerReadGate.gate0Passed&&providerReadGate.approvedProviderId===source.providerId,'provider_unavailable','A claimed catalog flag cannot replace the approved provider evidence record');parseId(source.productId);invariant(['physical','cash'].includes(source.settlement),'instrument_division','The actual product and settlement division must be recorded');}
   parseId(input.division);parseId(input.rulesVersion);parseId(source.providerId);validateSeasonSchedule(input.schedules);
   invariant(source.expirations.length===4&&input.schedules.every((s,i)=>s.expiresAt===source.expirations[i]),'instrument_expiration','Each round must fit its actual catalog expiration');
   for(const e of source.expirations)parseUtc(e);
   const now=await serverTime(tx,clock);invariant(Date.parse(input.schedules[0].researchOpen)>now.getTime(),'schedule_started','Publish the entire timetable before research opens');
   const allocation=10000000000n,reserve=BigInt(unitsSchema.parse(source.kind==='synthetic'?'10000000':source.feeReserveLamports));invariant(reserve>0n&&reserve<allocation,'fee_reserve','Declare a positive uncovered SOL fee reserve below the reference allocation');
-  const rules={allocationLamports:allocation.toString(),reserveLamports:reserve.toString(),candidateLimit:2,quorum:'strict_majority',ballotHours:12,executionMaxMinutes:60,source,ranking:source.kind==='synthetic'?'teaching_only':'eligible_subject_to_quality',liveCohort:'independent_registered_cohort',referenceLamports:(allocation-reserve).toString(),rosterPolicy:'active_linked_members_at_opening; accepted_before_opening_snapshot'};
+  const rules={product:source.kind==='synthetic'?'original-synthetic-covered-call':source.productId,settlement:source.kind==='synthetic'?'physical':source.settlement,allocationLamports:allocation.toString(),reserveLamports:reserve.toString(),candidateLimit:2,quorum:'strict_majority',ballotHours:12,executionMaxMinutes:60,source,ranking:source.kind==='synthetic'?'teaching_only':'eligible_subject_to_quality',liveCohort:'independent_registered_cohort',referenceLamports:(allocation-reserve).toString(),rosterPolicy:'active_linked_members_at_opening; accepted_before_opening_snapshot'};
   const season=(await tx.query<{id:string}>('INSERT INTO seasons(guild_id,mode,division,rules_version,rules) VALUES($1,$2,$3,$4,$5::jsonb) RETURNING id',[guildId,input.mode,input.division,input.rulesVersion,JSON.stringify(rules)])).rows[0];
   const rounds:{id:string}[]=[];
   for(const [i,s] of input.schedules.entries())rounds.push((await tx.query<{id:string}>("INSERT INTO rounds(guild_id,season_id,mode,number,state,schedule,expires_at) VALUES($1,$2,$3,$4,'research',$5::jsonb,$6) RETURNING id",[guildId,season.id,input.mode,i+1,JSON.stringify(s),s.expiresAt])).rows[0]);

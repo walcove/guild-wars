@@ -18,7 +18,7 @@ Task 27 work record. Local implementation/synthetic evidence is distinct from pe
 | A12 Complete real provider lifecycle | Source-gated ports and rejected live preparation | **Blocked:** no approved provider, permission, credentials or real lifecycle evidence |
 | A13 Capability-aware midweek | midweek-actions and positions browser, Hold only when unsupported | Actual supported management and independently authorized changes |
 | A14 Settlement/no double counting | ledger, simulation and reconciliation tests, results snapshots | Actual expiration/claim/withdrawal evidence |
-| A15 Fair comparisons | benchmarks/scoring/cohort tests, losing-round browser | Complete permitted hourly option marks, cohort and five-guild publication |
+| A15 Fair comparisons | benchmarks/scoring/cohort tests, losing-round browser | Complete permitted hourly option marks, cohort and actual five-guild publication |
 | A16 Useful research/appeals | research-reputation tests, community browser | Permitted outcome sources and native digest delivery |
 | A17 Beginner responsive accessibility | shell four widths, feature desktop/mobile targets; 44 four-width screens plus three CSS-zoom/contrast checks pass | Observed member comprehension |
 | A18 Recovery/operations | actual worker SIGKILL/replay, uncertainty and timeout cases; local scoped health, fresh migrations/replay and isolated snapshot restore pass | Hosted incidents/alerts and operational ownership |
@@ -32,3 +32,5 @@ R01 Graphile durable jobs/outbox; R02 provider-first optional authorization path
 ## Design remedy mapping
 
 D01 context/next action and earlier obligations; D02 newcomer covered-call explanation/fixed comparison versus personal size; D03 retained drafts/unknown values/recovery; D04 exact authorized Telegram origin/version through sign-in and discussion return; D05 fills/expiration/settlement/claim/withdrawal/continued exposure; D06 negative total before positive excess, separate paper/personal/cohort and provisional reasons; D07 supplied Deco tokens with functional text; D08 keyboard/focus/labels/320–1360px and zoom; D09 allowance/immutable criteria/misses/conflicts/reasons/appeals and separate recognition. Production rendered audit passes the automated checks in Task 27 verification. Native Telegram appearance and member comprehension remain unverified.
+
+Final source-independent comparison coverage: immutable normalized SOL covered-call/holding and separately priced precommitted House revisions, matched/informational alignment and private snapshot invalidation, authorized five-peer composition/persisted publication, missing-consent/division/complete-cohort exclusions, source/grant checks and correction lineage. Original teaching records remain excluded from official points; real source adapters/permissions are still unavailable.
