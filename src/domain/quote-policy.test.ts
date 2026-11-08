@@ -17,3 +17,7 @@ it('cannot relabel a model or a synthetic quote as executable live',()=>{
 it('permits clearly synthetic teaching data only outside ranked/live execution',()=>expect(assertEligibleQuote({...quote,kind:'model',source:{...quote.source,synthetic:true}},{...context,ranked:false,size:{...context.size,capacityLamports:null}})).toMatchObject({kind:'model'}));
 
 it('rejects another provider even when the instrument identifier matches',()=>expect(()=>assertEligibleQuote({...quote,terms:{...quote.terms,providerId:'other-provider'}},context)).toThrow(/provider/i));
+it('requires explicit known fees and never accepts a synthetic executable claim',()=>{
+ expect(()=>assertEligibleQuote({...quote,fees:[]},context)).toThrow();
+ expect(()=>assertEligibleQuote({...quote,kind:'executable',source:{...quote.source,synthetic:true}},{...context,ranked:false})).toThrow();
+});

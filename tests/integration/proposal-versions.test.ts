@@ -1,0 +1,33 @@
+import {randomUUID} from 'node:crypto';
+import {afterAll,beforeAll,expect,it} from 'vitest';
+import type {Pool} from 'pg';
+import {testPool} from './helpers/database';
+import {syntheticGuild} from './helpers/fixtures';
+import {saveDraft,snapshotProposal,readProposal,type PlanCatalog} from '../../src/server/services/proposals';
+import type {PlanContext} from '../../src/domain/proposals';
+let db:Pool;beforeAll(()=>{db=testPool();});afterAll(async()=>{await db.end();});
+const draft={selection:'teaching-110',why:'Synthetic rationale only',mainRisk:'SOL may decline substantially',sourceUrl:'https://status.solana.com/',changeOfView:'Verified contradictory evidence'};
+const catalog:PlanCatalog={resolve:async(round,selection)=>({guildId:round.guild_id,roundId:round.id,mode:round.mode,dataClass:'teaching_only',terms:{underlying:'SOL',settlementCurrency:'USDC',strike:{amount:selection==='teaching-110'?'110':'115',denomination:'USD',per:'SOL'},expiresAt:round.expires_at.toISOString(),settlement:'physical',custody:'protocol_escrow',location:'solana',instrumentId:selection,providerId:'synthetic'},allocationLamports:'10000000000',reserveLamports:'10000000',referenceLamports:'9990000000',minimumLamports:null,incrementLamports:null,capacityLamports:null,quote:null,acceptance:{minimumNetPremiumUsdcMicrosPerSol:'0',maxFees:[{currency:'USDC',units:'0'}]},source:{sourceId:'synthetic-teaching',observedAt:new Date().toISOString(),receivedAt:new Date().toISOString(),synthetic:true}} as PlanContext)};
+it('creates immutable versions, retains old versions and rejects stale drafts or material changes after lock',async()=>{
+ const f=await syntheticGuild(db),requestId=randomUUID(),p=await saveDraft(db,f.userId,f.guildId,f.roundId,{draft,requestId},catalog);
+ expect((await saveDraft(db,f.userId,f.guildId,f.roundId,{draft,requestId},catalog)).id).toBe(p.id);
+ await expect(snapshotProposal(db,f.userId,p.id,1,'0'.repeat(64))).rejects.toMatchObject({code:'draft_conflict'});
+ const v1=await snapshotProposal(db,f.userId,p.id,1,p.reviewHash);expect(v1.version).toBe(1);
+ const p2=await saveDraft(db,f.userId,f.guildId,f.roundId,{id:p.id,expectedRevision:1,draft:{...draft,selection:'teaching-115'},requestId},catalog);
+ await expect(snapshotProposal(db,f.userId,p.id,1,p.reviewHash)).rejects.toMatchObject({code:'draft_conflict'});
+ const v2=await snapshotProposal(db,f.userId,p.id,2,p2.reviewHash);expect(v2.version).toBe(2);expect(v2.contentHash).not.toBe(v1.contentHash);
+ expect((await readProposal(db,f.userId,p.id,v1.id)).version!.id).toBe(v1.id);
+ await expect(db.query("UPDATE proposal_versions SET content='{}' WHERE id=$1",[v1.id])).rejects.toThrow(/append-only/);
+ await db.query("UPDATE rounds SET state='candidate_lock' WHERE id=$1",[f.roundId]);
+ await expect(saveDraft(db,f.userId,f.guildId,f.roundId,{id:p.id,expectedRevision:2,draft,requestId},catalog)).rejects.toMatchObject({code:'candidate_locked'});
+});
+it('protects unshared drafts, mismatched expiry and forwarded private proposal versions',async()=>{
+ const a=await syntheticGuild(db),b=await syntheticGuild(db),p=await saveDraft(db,a.userId,a.guildId,a.roundId,{draft,requestId:randomUUID()},catalog);
+ await db.query("INSERT INTO memberships(guild_id,user_id,role,status) VALUES($1,$2,'member','active')",[a.guildId,b.userId]);
+ await expect(readProposal(db,b.userId,p.id)).rejects.toMatchObject({code:'draft_private'});
+ const bad:PlanCatalog={resolve:async(r,s)=>{const ctx=await catalog.resolve(r,s);return {...ctx,terms:{...ctx.terms,expiresAt:'2030-01-01T00:00:00.000Z'}};}};
+ await expect(saveDraft(db,a.userId,a.guildId,a.roundId,{id:p.id,expectedRevision:1,requestId:randomUUID(),draft},bad)).rejects.toMatchObject({code:'instrument_expiration'});
+ const v=await snapshotProposal(db,a.userId,p.id,1,p.reviewHash);expect((await readProposal(db,b.userId,p.id)).version!.id).toBe(v.id);
+ await db.query("UPDATE memberships SET status='suspended' WHERE guild_id=$1 AND user_id=$2",[a.guildId,b.userId]);
+ await expect(readProposal(db,b.userId,p.id,v.id)).rejects.toMatchObject({code:'forbidden'});
+});
