@@ -1,0 +1,6 @@
+import type {Pool} from 'pg';
+import {transaction} from '../db/client';
+import {invariant} from '../../domain/errors';
+export async function recordCohortOutcome(db:Pool,userId:string,registrationId:string,action:'declined'|'unfilled'|'holding'|'deviation',operationId:string):Promise<void>{
+ invariant(['declined','unfilled','holding','deviation'].includes(action)&&/^[A-Za-z0-9:_-]{1,180}$/.test(operationId),'invalid_outcome','Invalid cohort report');await transaction(db,async tx=>{const registration=(await tx.query('SELECT id FROM live_sleeve_registrations WHERE id=$1 AND user_id=$2 FOR SHARE',[registrationId,userId])).rows[0];invariant(registration,'forbidden','This registered sleeve is not yours');const prior=(await tx.query('SELECT registration_id,kind FROM cohort_verification_events WHERE operation_id=$1',[operationId])).rows[0];if(prior){invariant(prior.registration_id===registrationId&&prior.kind===action,'operation_conflict','This report refers to a different event');return;}await tx.query('INSERT INTO cohort_verification_events(registration_id,operation_id,kind,record) VALUES($1,$2,$3,$4::jsonb)',[registrationId,operationId,action,JSON.stringify({reportedByOwner:true,notProviderConfirmation:true,retainsFrozenMember:true,tradeAuthority:false})]);});
+}

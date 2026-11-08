@@ -1,0 +1,13 @@
+import {unitsSchema,parseUtc} from './types';
+import {invariant} from './errors';
+export function registeredCoverage(input:{allocationLamports:string;reserveLamports:string;investmentCashUsdcMicros:string;minimumLamports:string;incrementLamports:string}):string{
+ const allocation=BigInt(unitsSchema.parse(input.allocationLamports)),reserve=BigInt(unitsSchema.parse(input.reserveLamports)),cash=BigInt(unitsSchema.parse(input.investmentCashUsdcMicros)),minimum=BigInt(unitsSchema.parse(input.minimumLamports)),increment=BigInt(unitsSchema.parse(input.incrementLamports));invariant(cash===0n,'extra_cash','The registered weekly sleeve starts with zero additional investment cash');invariant(reserve>0n&&allocation>reserve,'fee_reserve','A positive uncovered fee reserve must be smaller than the allocation');const coverage=allocation-reserve;invariant(minimum>0n&&increment>0n&&coverage>=minimum&&(coverage-minimum)%increment===0n,'unsupported_size','The entire reference allocation must match the provider minimum and increment');return coverage.toString();
+}
+export interface CohortRoundQuality {userId:string;round:number;verified:boolean;deviation:boolean;action:string}
+export function cohortQuality(frozenMembers:readonly string[],records:readonly CohortRoundQuality[]):{status:'verified'|'provisional';reasons:string[];size:number}{
+ const reasons:string[]=[];if(frozenMembers.length<3)reasons.push('Fewer than three verified opted-in members');if(new Set(frozenMembers).size!==frozenMembers.length)reasons.push('Duplicate cohort identity');
+ for(const userId of frozenMembers)for(const round of [1,2,3,4]){const matches=records.filter(r=>r.userId===userId&&r.round===round);if(matches.length!==1)reasons.push(`Registered member has a missing or duplicated round ${round}`);else if(!matches[0].verified||matches[0].deviation)reasons.push(`Registered round ${round} is unverifiable or deviates from its sleeve`);}
+ if(records.some(r=>!frozenMembers.includes(r.userId)||![1,2,3,4].includes(r.round)))reasons.push('Result includes an unregistered member or round');return {status:reasons.length?'provisional':'verified',reasons:[...new Set(reasons)],size:frozenMembers.length};
+}
+// Shared UTC week claims prevent guild-specific season UUIDs from evading exclusivity.
+export function cohortWeekKeys(expirations:readonly string[]):string[]{invariant(expirations.length===4,'season_rounds','Cohort membership is frozen for exactly four rounds');const keys=expirations.map(t=>{parseUtc(t);const d=new Date(t);d.setUTCDate(d.getUTCDate()-((d.getUTCDay()+6)%7));return d.toISOString().slice(0,10);});invariant(new Set(keys).size===4&&keys.every((k,i)=>i===0||k>keys[i-1]),'competition_period','Competition weeks must be distinct and ordered');return keys;}

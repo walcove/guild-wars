@@ -1,0 +1,3 @@
+ALTER TABLE "cohort_members" ADD CONSTRAINT "cohort_owner" UNIQUE("id","user_id");--> statement-breakpoint
+ALTER TABLE "cohort_week_claims" ADD CONSTRAINT "cohort_week_claims_cohort_member_id_user_id_cohort_members_id_user_id_fk" FOREIGN KEY ("cohort_member_id","user_id") REFERENCES "public"."cohort_members"("id","user_id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cohort_week_claims" ADD CONSTRAINT "cohort_week_claims_account_id_user_id_provider_accounts_id_user_id_fk" FOREIGN KEY ("account_id","user_id") REFERENCES "public"."provider_accounts"("id","user_id") ON DELETE no action ON UPDATE no action;
