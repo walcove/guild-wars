@@ -1,0 +1,2 @@
+import {DomainError,invariant} from './errors';
+export function sourceUrl(input:string):string {invariant(typeof input==='string'&&input.length<=2048,'invalid_source','Include the original public HTTPS source URL');let url:URL;try{url=new URL(input);}catch{throw new DomainError('invalid_source','Include a valid original source URL');}invariant(url.protocol==='https:'&&!url.username&&!url.password&&url.hostname.includes('.')&&!['localhost','127.0.0.1','0.0.0.0'].includes(url.hostname),'invalid_source','Use a public HTTPS source without credentials');return url.toString();}

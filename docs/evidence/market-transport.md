@@ -1,0 +1,9 @@
+# Market transport evidence
+
+2026-11-07: rechecked official [SOL market-chart contract](https://docs.coingecko.com/reference/coins-id-market-chart), [Pro authentication](https://docs.coingecko.com/reference/authentication), [Demo authentication](https://docs.coingecko.com/demo/reference/authentication), and [error behavior](https://docs.coingecko.com/docs/errors-and-rate-limits). The adapter uses a fixed server-side host/path and appropriate header, bounded response size, eight-second timeout, no redirects, and no raw remote error bodies. No authenticated request ran.
+
+All transport fixtures are original synthetic price arrays, not copied market records. Three contracts cover rights before I/O, key separation, timestamp validation, irregular granularity and rate limits. Database tests prove shared public refresh coalescing, bounded stale output/cooldown and private field rejection. A separate integration check rejects outsiders before returning guild events/history. Read-only status polling reads cached public data; a deliberate authorized refresh queues work. Quotes and settlement inputs never come from this history cache.
+
+Prices here are approximate research observations for charts, not exact ledger or official valuation inputs. No interpolation supplies missing option marks. A stale or unavailable source does not grant live preparation or ranked execution. The configured plan/rights/key, display smoke check and real source-quality evaluation remain Unavailable. Daily/irregular data cannot silently satisfy an hourly scoring requirement.
+
+Retention is policy bounded; minute recovery clears expired price bodies. The reviewed rights must allow the stated retention plus cleanup margin. No account-specific quote, research note or holding is stored in the public cache. Production data and Telegram sending are disabled.

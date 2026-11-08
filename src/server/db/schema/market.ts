@@ -1,0 +1,6 @@
+import {pgTable,text,jsonb,timestamp,index,uuid} from 'drizzle-orm/pg-core';
+import {id,createdAt} from './common';
+import {guilds} from './guilds';
+import {users} from './identity';
+export const publicMarketCache=pgTable('public_market_cache',{key:text('key').primaryKey(),record:jsonb('record'),fetchedAt:timestamp('fetched_at',{withTimezone:true}),freshUntil:timestamp('fresh_until',{withTimezone:true}),staleUntil:timestamp('stale_until',{withTimezone:true}),retainUntil:timestamp('retain_until',{withTimezone:true}),leaseToken:text('lease_token'),leaseUntil:timestamp('lease_until',{withTimezone:true}),retryAfter:timestamp('retry_after',{withTimezone:true})});
+export const curatedEvents=pgTable('curated_events',{id:id(),guildId:uuid('guild_id').notNull().references(()=>guilds.id),authorId:uuid('author_id').notNull().references(()=>users.id),title:text('title').notNull(),sourceUrl:text('source_url').notNull(),scheduledAt:timestamp('scheduled_at',{withTimezone:true}).notNull(),lastCheckedAt:timestamp('last_checked_at',{withTimezone:true}).notNull(),relevance:text('relevance').notNull(),uncertainty:text('uncertainty').notNull(),createdAt:createdAt()},t=>[index('events_by_guild_time').on(t.guildId,t.scheduledAt)]);
