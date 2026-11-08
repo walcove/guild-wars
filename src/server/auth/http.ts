@@ -1,9 +1,10 @@
 import {NextResponse,type NextRequest} from 'next/server';
 import {z} from 'zod';
-import {DomainError,invariant} from '../../domain/errors';
+import {DomainError} from '../../domain/errors';
 import {getPool,transaction} from '../db/client';
 import {readSession} from './sessions';
 import {opaqueToken,tokenHash,matchesHash} from './crypto';
+import {readLimitedText} from '../http/request-body';
 import {assertCsrf} from './csrf';
 const secure=process.env.NODE_ENV==='production';
 export const sessionCookie=secure?'__Host-gw_session':'gw_session';
@@ -22,12 +23,12 @@ export async function mutationSession(request:NextRequest){
  return {token,session};
 }
 export async function body<T>(request:NextRequest,schema:z.ZodType<T>):Promise<T> {
- const text=await request.text();invariant(Buffer.byteLength(text)<=8192,'invalid_input','Request is too large');
+ const text=await readLimitedText(request,8192);
  try{return schema.parse(JSON.parse(text));}catch{throw new DomainError('invalid_input','Check the connection request and retry');}
 }
 export function httpError(error:unknown):NextResponse {
  if(error instanceof DomainError) {
-  const status=error.code==='invalid_session'?401:error.code==='csrf'?403:error.code==='rate_limited'?429:error.code==='unavailable'?503:error.code==='invalid_input'?400:409;
+  const status=['invalid_session','unauthorized'].includes(error.code)?401:error.code==='csrf'?403:error.code==='rate_limited'?429:error.code==='unavailable'?503:error.code==='invalid_input'?400:409;
   return privateJson({error:error.code,message:error.message},status);
  }
  console.error(JSON.stringify({component:'request',event:'service_error'}));return privateJson({error:'unavailable',message:'The service is unavailable. Your input was retained; retry when connected.'},503);

@@ -1,7 +1,7 @@
 import type {Pool} from 'pg';
 import {systemClock,type Clock} from '../../domain/clock';
 import {invariant} from '../../domain/errors';
-import {transaction} from '../db/client';
+import {transaction,type Tx} from '../db/client';
 import {createSession,sessionInTx,requireFreshTelegram,type BrowserSession} from '../auth/sessions';
 import {opaqueToken,tokenHash,validToken} from '../auth/crypto';
 import {safeReturnPath} from '../auth/link-challenges';
@@ -18,13 +18,16 @@ export async function issueLink(db:Pool,sessionToken:string,path:string,purpose:
 }
 export async function proveTelegramLink(db:Pool,token:string,telegramId:string,clock:Clock=systemClock):Promise<void> {
  invariant(validToken(token)&&/^[1-9]\d{0,19}$/.test(telegramId),'invalid_proof','Invalid Telegram connection proof');
- await transaction(db,async tx=>{
-  const row=(await tx.query('SELECT c.*,s.revoked_at FROM link_challenges c JOIN sessions s ON s.token_hash=c.session_hash WHERE c.token_hash=$1 FOR UPDATE OF c',[tokenHash(token)])).rows[0];
-  invariant(row&&!row.consumed_at&&!row.revoked_at&&clock.now()<row.expires_at,'link_expired','Connection expired or unavailable; restart in the original browser');
-  invariant(!row.telegram_id||row.telegram_id===telegramId,'identity_conflict','This connection was confirmed by another Telegram account');
-  await tx.query('UPDATE link_challenges SET telegram_id=$2 WHERE token_hash=$1',[tokenHash(token),telegramId]);
- });
+ await transaction(db,tx=>proveTelegramLinkHashInTx(tx,tokenHash(token),telegramId,clock));
 }
+export async function proveTelegramLinkHashInTx(tx:Tx,hash:string,telegramId:string,clock:Clock):Promise<void> {
+ invariant(/^[a-f0-9]{64}$/.test(hash)&&/^[1-9]\d{0,19}$/.test(telegramId),'invalid_proof','Invalid Telegram proof');
+ const row=(await tx.query('SELECT c.*,s.revoked_at FROM link_challenges c JOIN sessions s ON s.token_hash=c.session_hash WHERE c.token_hash=$1 FOR UPDATE OF c',[hash])).rows[0];
+ invariant(row&&!row.consumed_at&&!row.revoked_at&&clock.now()<row.expires_at,'link_expired','Connection expired or unavailable; restart in the original browser');
+ invariant(!row.telegram_id||row.telegram_id===telegramId,'identity_conflict','This connection was confirmed by another Telegram account');
+ await tx.query('UPDATE link_challenges SET telegram_id=$2 WHERE token_hash=$1',[hash,telegramId]);
+}
+
 export async function confirmTelegramLink(db:Pool,sessionToken:string,token:string,clock:Clock=systemClock,expectedTelegramId?:string):Promise<BrowserSession> {
  invariant(validToken(token),'link_expired','Connection expired; restart safely');
  return transaction(db,async tx=>{
@@ -47,6 +50,7 @@ export async function confirmTelegramLink(db:Pool,sessionToken:string,token:stri
   } else if(session.userId) {
    invariant(existing?.id===session.userId,'identity_conflict','Wrong account: stop and reconnect with the existing Telegram identity');userId=session.userId;
   } else {userId=existing?.id??(await tx.query('INSERT INTO users(telegram_id) VALUES($1) RETURNING id',[row.telegram_id])).rows[0].id;}
+  await tx.query('UPDATE users SET bot_started_at=$2 WHERE id=$1',[userId,clock.now()]);
   await tx.query('UPDATE link_challenges SET consumed_at=$2 WHERE token_hash=$1',[tokenHash(token),clock.now()]);
   await tx.query('UPDATE sessions SET revoked_at=$2 WHERE token_hash=$1',[session.tokenHash,clock.now()]);
   return {...await createSession(tx,userId,clock,clock.now()),returnPath:row.return_path};

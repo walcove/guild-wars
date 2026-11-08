@@ -10,7 +10,7 @@ export async function POST(request:NextRequest){
  try {
   const {token}=await mutationSession(request),input=await body(request,z.object({returnPath:z.string().max(1024),purpose:z.enum(['sign_in','change_identity']).default('sign_in')}).strict());
   const bot=process.env.TELEGRAM_BOT_USERNAME;
-  invariant(bot&&/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(bot),'unavailable','A separate authorized test bot is not configured. Connection is unavailable.');
+  invariant(process.env.GW_TELEGRAM_SENDING_ENABLED==='true'&&process.env.TELEGRAM_BOT_TOKEN&&process.env.TELEGRAM_WEBHOOK_SECRET&&bot&&/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(bot),'unavailable','A separate authorized test bot is not configured. Connection is unavailable.');
   const link=await issueLink(getPool(),token,input.returnPath,input.purpose);
   return privateJson({...link,botUrl:`https://t.me/${bot}?start=link_${link.token}`});
  }catch(error){return httpError(error);}

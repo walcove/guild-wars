@@ -1,3 +1,5 @@
+import {deliverCommand} from '../telegram/commands';
+import {telegramConfiguration,telegramTransport} from '../telegram/bot';
 import {run,type TaskList} from 'graphile-worker';
 import type {Pool} from 'pg';
 import {transaction} from '../db/client';
@@ -5,7 +7,7 @@ import {recoverDue} from './scheduler';
 import {tasks} from './queue';
 import {lane,budgets,workerPools} from './budgets';
 export function handlers(db:Pool,partition:'critical'|'background',installed:TaskList={}):TaskList {
- return Object.fromEntries(tasks.filter(task=>lane(task)===partition).map(task=>[task,installed[task]??(task==='recover_due'?async()=>{await transaction(db,recoverDue);}:async()=>{throw new Error(`Handler ${task} is not installed; operation retained for retry`);})]));
+ return Object.fromEntries(tasks.filter(task=>lane(task)===partition).map(task=>[task,installed[task]??(task==='telegram_command'?async(payload:unknown)=>{await deliverCommand(db,(payload as {operationId:string}).operationId,telegramConfiguration(),telegramTransport());}:task==='recover_due'?async()=>{await transaction(db,recoverDue);}:async()=>{throw new Error(`Handler ${task} is not installed; operation retained for retry`);})]));
 }
 export async function startJobRunners(connectionString:string,installed:TaskList={}) {
  const pools=workerPools(connectionString);
