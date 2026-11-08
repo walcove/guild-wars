@@ -6,5 +6,5 @@ import "@fontsource/jetbrains-mono/400.css";
 import "./globals.css";
 export const metadata: Metadata = { title: "Guild Wars · SOL covered calls", description: "Research SOL covered calls together. Keep control of your own decisions." };
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
- return <html lang="en"><body>{children}</body></html>;
+ return <html lang="en" data-scroll-behavior="smooth"><body>{children}</body></html>;
 }
