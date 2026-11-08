@@ -1,0 +1,75 @@
+{
+  "evidence": "Original synthetic local database only; no external provider, production bot or funded state",
+  "database": "guild_wars_restore_aa41835129804b28",
+  "dumpSha256": "483afaec6499d93bf9bf21f2d3567fd9dd946056583622ca4de49021788ffb26",
+  "tables": {
+    "ledger_events": {
+      "count": 1210,
+      "hash": "3e193045fa4eba1295d18cdd6f8bab26"
+    },
+    "fills": {
+      "count": 239,
+      "hash": "be0a827324addb2709382d1c2effbc4f"
+    },
+    "provider_observations": {
+      "count": 709,
+      "hash": "2c136bbcb670822f0dd3aa4b66ca9c0d"
+    },
+    "order_intents": {
+      "count": 594,
+      "hash": "df2b6dc6eb240833cf401c96b0f17864"
+    },
+    "reservations": {
+      "count": 319,
+      "hash": "522efc0971a3b80c7fb7fab37daa754f"
+    },
+    "positions": {
+      "count": 240,
+      "hash": "83418b442efc421685b7840c44b01872"
+    },
+    "ballots": {
+      "count": 620,
+      "hash": "6b4059366b5f3efc40f0b0ea281be210"
+    },
+    "votes": {
+      "count": 376,
+      "hash": "113b5779731a2a5502f9add49b5113e0"
+    },
+    "round_roster": {
+      "count": 641,
+      "hash": "19371b0100c7335d8938e60aa09318d9"
+    },
+    "ballot_roster": {
+      "count": 597,
+      "hash": "292a202671d55df7cc6d97c343a05c28"
+    },
+    "membership_history": {
+      "count": 3330,
+      "hash": "cb6a153604762e674dd7a3da2ec6c4b6"
+    },
+    "result_snapshots": {
+      "count": 35,
+      "hash": "3039f9275738068b735253284247360d"
+    },
+    "score_revisions": {
+      "count": 33,
+      "hash": "90bb09b0a91a3608c00682950734a9ec"
+    },
+    "audit_events": {
+      "count": 1285,
+      "hash": "4d2ae0a6261e1b6661f4a05adc300122"
+    },
+    "operations": {
+      "count": 2511,
+      "hash": "5bba57da146b15b2aba1e5e4fe9468cb"
+    }
+  },
+  "permissions": {
+    "history_write": false,
+    "health_write": false,
+    "queue_access": false,
+    "queue_owner": true
+  },
+  "appendOnlyTriggers": 40,
+  "limitations": "Same-cluster local PostgreSQL restore with pre-existing disposable roles. Not managed-host failover, PITR, external-side-effect rollback or production RPO/RTO evidence. Restored database and protected local dump retained for inspection."
+}

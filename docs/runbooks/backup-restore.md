@@ -1,0 +1,9 @@
+# Backup and restore
+
+Managed backups, encryption, retention, PITR, RPO/RTO, region and access owners are release prerequisites; none is contracted. A production backup contains personal/financial data and requires restricted encrypted storage. `.local` test dumps are ignored by Git, directory mode 0700 and file mode 0600; they contain original synthetic records only.
+
+`npm run ops:restore-check` accepts only the designated loopback test database and the repository-labeled Docker PostgreSQL container. It exports one repeatable-read snapshot, computes 15 table fingerprints, creates a custom pg_dump using that snapshot, and restores into a generated, previously absent database. It never drops or overwrites the source, another database, container or volume. It validates exact financial/ballot/history/audit records, append-only triggers, queue ownership and runtime privilege denials. Report and dump stay under `.local/restore/<generated-name>` for inspection.
+
+The restore uses the same local cluster with its existing disposable roles. It preserves object owners/ACLs. A different cluster needs separately installed scoped roles, secrets and supported Graphile ownership; do not use `--no-owner` as a shortcut. A restored application is quarantined: Telegram/data/live sending remain disabled. Verify order state, reservations, ledger corrections, original rosters, vote revisions, source classes, unresolved deliveries and reconciliation checkpoints before restoring read access.
+
+Local exercised evidence: [restore report](../evidence/backup-restore-local.json). This is a successful same-cluster synthetic snapshot restore, not PITR, managed-host failover, external rollback, or a production recovery-time guarantee. A host must demonstrate a fresh restore and reconcile actual external records before release. Keep the corrupted anonymous volume from the earlier disk incident intact; do not treat it as a backup to overwrite.

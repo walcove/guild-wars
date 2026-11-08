@@ -1,0 +1,17 @@
+# Incident recovery
+
+Pause new preparation on all web instances; preserve existing commitments and direct provider access. Record incident time, release revision, affected canonical IDs in restricted support storage, observed source/finality and the recovery decision. Never paste credentials, raw webhook bodies, account balances, wallet signatures or provider payloads into ordinary logs. Worker library logging discards message/meta/stack content and records only severity events; use the restricted canonical record for diagnosis.
+
+| Trigger | Safe recovery and evidence |
+| --- | --- |
+| Bot removed / binding invalid | Mark binding inactive using the verified membership/admin service. Reject callbacks for the prior group; website research/private owner records remain available. Rebind only after the actual current administrator and bot permission checks. Native evidence pending. |
+| Telegram timeout / outage | Keep a possibly sent message Unknown. Inspect canonical delivery and known acknowledged message IDs. No blind resend; publish an explicitly marked replacement only through the versioned replacement workflow. A failed callback answer never erases a committed vote; direct the member to the private receipt. |
+| Provider outage / revoked read credentials | Keep Unknown/partial orders and full unresolved collateral reservation. Do not reuse another account, create a duplicate, infer rejection or free assets from elapsed quote time. Restore verified read access, reconcile exact owned order/account, and require separate authorization for each new order. |
+| Stale quote / missing source | Disable executable preparation; retain known facts and source timestamps, display missing values. Existing obligations survive expired quotes and a new round. Data rights and ranked source coverage must pass again. |
+| Worker death / backlog | Check 15s heartbeat, due queue lag and exhausted jobs. Establish the exact process is dead before using Graphile's supported forceUnlockWorkers API for its recorded worker ID. Replay idempotent effects; never edit private Graphile tables or unlock a possibly live worker. See [worker recovery](worker-recovery.md). |
+| Database loss | Stop new mutations, preserve provider records, restore a new isolated target and validate [backup procedure](backup-restore.md). Reconcile external side effects before resuming. A database rollback cannot reverse a provider order or a Telegram send. |
+| Identity/access change | Revoke old sessions, hide previous static content/cache/drafts, reprove identity in the original browser. Owner order/position/audit access survives guild departure; unrelated guilds remain denied. |
+
+The local PostgreSQL/HTTP harness tests removal, unauthorized updates, 429/500 ambiguity, source loss, late callbacks, committed-vote feedback failure, post-lock deadlines and real worker SIGKILL/replay. This is not hosted incident evidence. Provider direct-management URL/capabilities and support escalation contacts cannot be supplied until Gate 0 selects and verifies a provider. Do not invent a management link. The unavailable state must remain visible.
+
+Rollback: pause first, stop only the owned release services, retain DB/events/reservations and run the last schema-compatible web/worker revision. Do not roll a financial schema backward or restore over current effects. Rebuild aggregate revisions from complete verified inputs; retain superseded audit revisions. Destructive restores and funded changes require separate authorization.

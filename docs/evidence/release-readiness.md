@@ -1,0 +1,22 @@
+# Release evidence packet — NOT READY
+
+Local implementation only. No deploy, paid resource, remote repository, production webhook, funded order or release approval exists. The [canonical checklist](../implementation-checklist.md) governs remaining work; [service contract](../../ops/service-contract.json) fixes the measured commands and budgets while host/region/origin remain unset.
+
+| Gate | Evidence / concrete remaining requirement |
+| --- | --- |
+| Provider selection / permissions / custody / settlement | **Blocked.** [Gate 0](../decisions/0001-live-provider.md), [capabilities](provider-capabilities.json) and record index retain null/unavailable values. Need approved SOL covered-call access, actual permissions/contract increments, supported individual authorization and authoritative complete lifecycle samples. |
+| Data storage/display/marks/outcomes rights | **Blocked.** No approved derived-source registry grants. Supply permitted catalog/quotes/hourly liability marks, provenance and retention/redistribution terms. Synthetic cannot be relabeled permitted. |
+| Region/jurisdiction/eligibility/risk/privacy | **Blocked.** Human review, responsible owners and provider eligibility/custody/disclosure evidence required; no invented legal clearance. |
+| Website / ordinary bot | Local production browser + loopback bot HTTP flows pass. Native desktop/mobile Telegram proof, admin/removal, exact links/votes/receipts and authorized HTTPS test webhook still required. No Mini App. |
+| Financial safety / recovery | Exact money/FX, immutable versions/votes, source-gated reconciliation/corrections, owner isolation and reservation tests pass locally. [Verification](task27-verification.md), [matrix](acceptance-matrix.md). Actual live management/settlement remains unverified. |
+| Comparison/ranking | Matched holding, House timing, frozen cohort and hourly/scoring kernels tested. Official complete provider/cohort/hourly/five-guild publication remains blocked; displays stay provisional. |
+| Capacity | [Original synthetic load report](pilot-load-local.json): 100 members/five guilds, 200 HTTP pollers/two bursts, one loopback timeout, background backlog/five closures. Hardware/p95/pools recorded; not production or native Telegram capacity. |
+| Operations | Redacted logs, public minimal probes, scoped worker heartbeat/aggregate health, new-preparation pause, isolated restore and fresh migrations implemented. [Backup evidence](backup-restore-local.json). Hosted alert delivery, managed PITR/failover, actual secret rotation and support owners remain blocked. |
+| CI / immutable release | Workflow prepared with SHA-pinned official actions and fresh migrations/replay, types/lint/units/integration/contracts/builds/production Chromium. No remote run exists. Local candidate packaging requires a clean committed revision and never publishes. |
+| Pilot | [Four rounds](pilot-rounds.md) and [review](pilot-review.md) are NotStarted. Need explicit release, native/provider evidence, real elapsed expirations and human comprehension observations. |
+
+Operator decisions still required: selected persistent web/worker host, managed PostgreSQL/secrets/backup provider, approved region/cost, HTTPS entry point, named incident/support/privacy owners, actual provider direct management route and explicit user release authorization. This packet is reviewable preparation; it does not ask the user to approve an unspecified deploy.
+
+Rollback and recovery limits are in [deployment](../runbooks/deployment.md), [incidents](../runbooks/incidents.md), [backup](../runbooks/backup-restore.md) and [support/privacy](../runbooks/support-and-privacy.md). A restore cannot undo external sends/trades. Live environment toggles alone never override the immutable release record. Pausing only new preparation preserves prior obligations and reconciliation.
+
+Official action versions were checked on 2026-11-08 against [checkout](https://github.com/actions/checkout), [setup-node](https://github.com/actions/setup-node) and [upload-artifact](https://github.com/actions/upload-artifact), then their v6/v7/v6 refs resolved read-only and pinned to commit SHAs. Hosted CI remains unexecuted because no remote was created.

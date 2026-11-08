@@ -1,3 +1,6 @@
+import {recordWorkerHealth} from '../operations/health';
+import {logEvent} from '../operations/logging';
+import {workerLogger} from '../operations/worker-logger';
 import { finalizeResearchAward } from "../services/award-decisions";
 import { queueResearchDigests } from "./research-digest";
 import { midweekNotice } from "./midweek-notice";
@@ -156,6 +159,7 @@ export async function startJobRunners(
   const pools = workerPools(connectionString);
   const critical = await run({
     pgPool: pools.critical,
+    logger:workerLogger,
     taskList: handlers(pools.critical, "critical", installed),
     concurrency: budgets.criticalHandlers,
     noHandleSignals: true,
@@ -166,6 +170,7 @@ export async function startJobRunners(
   try {
     background = await run({
       pgPool: pools.background,
+      logger:workerLogger,
       taskList: handlers(pools.background, "background", installed),
       concurrency: budgets.backgroundHandlers,
       noHandleSignals: true,
@@ -177,12 +182,17 @@ export async function startJobRunners(
     await Promise.all([pools.critical.end(), pools.background.end()]);
     throw error;
   }
+  let checking:Promise<void>|undefined;
+  const report=()=>checking??=(recordWorkerHealth(pools.critical).catch(()=>{logEvent('worker','health_report_failed');}).finally(()=>{checking=undefined;}));
+  await report();
+  const healthTimer=setInterval(()=>{void report();},15000);healthTimer.unref();
   const promise = Promise.all([critical.promise, background.promise]);
   let stopped: Promise<void> | undefined;
   return {
     promise,
     stop: () =>
       (stopped ??= (async () => {
+        clearInterval(healthTimer);await checking;
         await Promise.all([critical.stop(), background.stop()]);
         await Promise.all([pools.critical.end(), pools.background.end()]);
       })()),

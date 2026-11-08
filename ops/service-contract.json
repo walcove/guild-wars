@@ -1,0 +1,13 @@
+{
+  "status": "local-release-candidate-only",
+  "host": null,
+  "httpsOrigin": null,
+  "region": null,
+  "releaseAuthorized": false,
+  "web": {"command": "npm run start", "instances": 1, "databaseRole": "guild_wars_app", "maxConnections": 10, "liveness": "/api/health", "readiness": "/api/health?ready=1"},
+  "worker": {"command": "node .local/worker.mjs", "persistentProcess": true, "instances": 1, "databaseRole": "guild_wars_worker", "criticalConnections": 2, "backgroundConnections": 3, "healthIntervalSeconds": 15},
+  "migration": {"databaseRole": "guild_wars_migrator", "applicationTablesOwnedByRuntime": false, "breakingChangeRequiresMaintenance": true},
+  "database": {"engine": "PostgreSQL 16.11", "managedProvider": null, "backupsAndPitr": "must be contracted and restored before release"},
+  "flags": {"GW_LIVE_PREPARATION_ENABLED": false, "GW_PAUSE_NEW_PREPARATION": true, "GW_TELEGRAM_SENDING_ENABLED": false, "GW_DATA_ENABLED": false},
+  "releaseBlockers": ["approved SOL covered-call provider, custody and complete lifecycle", "data grants and samples", "eligibility and region review", "authorized native test-bot and HTTPS ingress", "host, secret store, backup and support ownership", "explicit human release decision"]
+}

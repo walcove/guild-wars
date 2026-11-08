@@ -1,0 +1,14 @@
+import {execFileSync} from 'node:child_process';
+import {mkdir,cp,readFile,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {resolve} from 'node:path';
+const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
+if(git('status','--porcelain'))throw Error('Commit the verified increment before creating an immutable local candidate');
+execFileSync('npm',['run','verify'],{stdio:'inherit'});
+if(git('status','--porcelain'))throw Error('Verification changed the checkout; review and commit first');
+const revision=git('rev-parse','HEAD'),destination=resolve('.local/releases',revision);await mkdir(destination,{recursive:false});
+await cp('.next',resolve(destination,'.next'),{recursive:true,filter:source=>!resolve(source).startsWith(resolve('.next/cache'))&&!source.endsWith('/trace')});
+for(const name of ['package.json','package-lock.json'])await cp(name,resolve(destination,name));await cp('public',resolve(destination,'public'),{recursive:true});await cp('.local/worker.mjs',resolve(destination,'worker.mjs'));
+await writeFile(resolve(destination,'next.config.mjs'),"export default {serverExternalPackages:['pg','graphile-worker']};\n");
+const hash=async name=>createHash('sha256').update(await readFile(name)).digest('hex'),manifest={status:'local-disabled-candidate',revision,webBuildId:(await readFile('.next/BUILD_ID','utf8')).trim(),workerSha256:await hash('.local/worker.mjs'),lockSha256:await hash('package-lock.json'),migrationsSha256:await hash('drizzle/meta/_journal.json'),webCommand:'npm run start',workerCommand:'node worker.mjs',dependencyCommand:'npm ci --omit=dev',flags:{live:false,telegram:false,data:false,pauseNewPreparation:true},host:null,httpsOrigin:null,releaseAuthorized:false};
+await writeFile(resolve(destination,'manifest.json'),JSON.stringify(manifest,null,2)+'\n');console.info(JSON.stringify({destination,...manifest}));
