@@ -9,3 +9,5 @@ fieldset { border:0; padding:0; margin:24px 0; min-width:0; } legend { font-size
 .account-short { display:none; } @media(max-width:767px) { .account-short { display:inline; } .account-wide { display:none; } .app-header .product-label { flex-basis:auto; } }
 
 .ownership-message { white-space:pre-wrap; overflow-wrap:anywhere; font:14px/1.6 "JetBrains Mono",monospace; padding:20px; border-left:2px solid var(--primary-container); background:var(--surface); } .address { overflow-wrap:anywhere; }
+
+.financial-facts { display:grid; grid-template-columns:minmax(160px,.8fr) minmax(0,1.2fr); gap:12px 24px; margin:24px 0; padding:20px 0; border-block:1px solid var(--line); } .financial-facts dt { color:var(--muted); } .financial-facts dd { margin:0; overflow-wrap:anywhere; font-family:"JetBrains Mono",monospace; font-size:14px; } @media(max-width:767px) { .financial-facts { grid-template-columns:1fr; gap:4px; } .financial-facts dd { margin-bottom:12px; } }

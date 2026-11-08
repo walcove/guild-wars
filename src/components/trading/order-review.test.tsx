@@ -1,0 +1,7 @@
+// @vitest-environment jsdom
+import {afterEach,expect,it,vi} from 'vitest';
+import {cleanup,fireEvent,render,screen} from '@testing-library/react';
+import {OrderReview} from './order-review';
+afterEach(cleanup);
+it('preserves Unknown without a duplicate-submit action and refreshes only the same intent',()=>{const refresh=vi.fn();render(<OrderReview intent={{id:'intent-a',mode:'live',state:'unknown',review:null,review_revision:1,review_hash:null,external_order_id:null}} onRefresh={refresh}/>);expect(screen.getByRole('heading',{name:'Order outcome unconfirmed'})).toBeTruthy();expect(screen.getByText(/Do not place a duplicate/)).toBeTruthy();expect(screen.queryByRole('button',{name:/submit|retry.*order|authorize|trade/i})).toBeNull();fireEvent.click(screen.getByRole('button',{name:'Refresh this saved order'}));expect(refresh).toHaveBeenCalledOnce();});
+it('explains partial collateral and unknown money without inventing zero amounts or a fill',()=>{render(<OrderReview intent={{id:'intent-a',mode:'live',state:'partially_filled',review:null,review_revision:1,review_hash:null,external_order_id:'provider-order-a'}}/>);expect(screen.getByRole('heading',{name:'Only part of your order filled'})).toBeTruthy();expect(screen.getByText(/Filled and unresolved collateral stays reserved/)).toBeTruthy();expect(screen.getByText(/Current price and fee information is unavailable/)).toBeTruthy();expect(screen.queryByText('0 USDC')).toBeNull();});

@@ -1,0 +1,1 @@
+ALTER TABLE "order_intents" ADD COLUMN "preparation_expires_at" timestamp with time zone;
