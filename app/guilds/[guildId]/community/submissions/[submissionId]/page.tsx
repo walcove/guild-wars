@@ -17,7 +17,7 @@ export default async function Page({
     ),
     v = await readCommunity(getPool(), user, guildId, null, null, submissionId);
   return (
-    <AppShell
+    <AppShell expectedUserId={user}
       guild={v.guildName}
       guildId={guildId}
       context="Community research · Exact submission and appeal"

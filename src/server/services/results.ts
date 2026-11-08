@@ -8,6 +8,7 @@ import {canonicalJson} from '../../domain/proposals';
 import {parseSource,parseUtc} from '../../domain/types';
 import type {LedgerEvent} from '../../domain/ledger';
 import {fraction,type Fraction} from '../../domain/money';
+import {assertPermittedDerivedSources} from '../providers/derived-source-permissions';
 import {executionGate} from '../providers/live-readiness';
 export interface ResultValuation {basis:BenchmarkInput;dataClass:'teaching_only'|'permitted_reference';dataRightsReference:string|null;settlementRecordReference:string|null}
 const hash=(v:unknown)=>createHash('sha256').update(canonicalJson(v)).digest('hex');
@@ -15,7 +16,7 @@ const json=(v:unknown)=>JSON.parse(JSON.stringify(v,(_,x)=>typeof x==='bigint'?x
 // Internal approved-source boundary only. No browser or Telegram endpoint accepts valuations.
 export async function recordResultValuation(db:Pool,sleeveId:string,revision:string,record:ResultValuation){await transaction(db,async tx=>{
  invariant(/^[A-Za-z0-9:_-]{1,128}$/.test(revision),'valuation_revision','A source revision is required');const sleeve=(await tx.query('SELECT s.*,r.expires_at,clock_timestamp() AS now FROM sleeves s JOIN rounds r ON r.id=s.round_id WHERE s.id=$1 FOR UPDATE OF s',[sleeveId])).rows[0];invariant(sleeve,'sleeve_unavailable','Sleeve unavailable');
- const b=record.basis;parseSource(b.source);parseSource(b.entrySource);parseUtc(b.entryAt);parseUtc(b.exitAt);invariant(b.expiry===sleeve.expires_at.toISOString()&&b.initialAssetLamports===sleeve.allocation_lamports&&b.reserveLamports===sleeve.reserve_lamports&&b.initialCashUsdcMicros==='0','valuation_basis','Valuation must match the original sleeve allocation, reserve and expiration');
+ const b=record.basis;if(record.dataClass==='permitted_reference')assertPermittedDerivedSources(record.dataRightsReference,[b.entrySource,b.source],sleeve.mode);parseSource(b.source);parseSource(b.entrySource);parseUtc(b.entryAt);parseUtc(b.exitAt);invariant(b.expiry===sleeve.expires_at.toISOString()&&b.initialAssetLamports===sleeve.allocation_lamports&&b.reserveLamports===sleeve.reserve_lamports&&b.initialCashUsdcMicros==='0','valuation_basis','Valuation must match the original sleeve allocation, reserve and expiration');
  invariant(Date.parse(b.exitAt)<=sleeve.now.getTime(),'future_valuation','A future result cannot be recorded');invariant(!b.settlementVerified||!!record.settlementRecordReference,'settlement_source','Verified settlement requires a source record');
  invariant(sleeve.mode==='simulation'||(executionGate.gate0Passed&&!b.source.synthetic&&!b.entrySource.synthetic&&record.dataClass==='permitted_reference'&&!!record.dataRightsReference),'live_unavailable','Live result inputs require approved source permissions');invariant(record.dataClass!=='teaching_only'||sleeve.mode==='simulation'&&b.source.synthetic&&b.entrySource.synthetic,'data_class','Synthetic inputs must remain teaching-only');
  const prior=(await tx.query('SELECT record FROM valuation_events WHERE sleeve_id=$1 AND revision=$2 AND observed_at=$3',[sleeveId,revision,b.exitAt])).rows[0];if(prior){invariant(hash(prior.record)===hash({...record,kind:'round_result'}),'valuation_changed','A correction requires a new source revision');return;}

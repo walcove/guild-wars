@@ -15,7 +15,7 @@ export default async function Page({
     user = await pageUser(`/guilds/${guildId}/community`),
     v = await readCommunity(getPool(), user, guildId);
   return (
-    <AppShell
+    <AppShell expectedUserId={user}
       guild={v.guildName}
       guildId={guildId}
       context={`Community research · UTC week of ${v.week}`}

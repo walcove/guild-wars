@@ -12,6 +12,7 @@ import {
 } from "../../domain/research-awards";
 import { canonicalJson } from "../../domain/proposals";
 import { parseSource, parseUtc, type SourceStamp } from "../../domain/types";
+import {assertPermittedDerivedSources} from '../providers/derived-source-permissions';
 import type { Clock } from "../../domain/clock";
 import { telegramConfiguration } from "../telegram/bot";
 import { enqueue } from "../jobs/queue";
@@ -149,6 +150,7 @@ export async function resolveRegisteredForecast(
       "forecast_source",
       "An auditable source record/revision is required"
     );
+    if(e.dataClass==='permitted_reference')assertPermittedDerivedSources(e.dataRightsReference,[e.source],'research');
     const result = resolveForecast(f.terms, {
         value: e.value,
         observedAt: e.observedAt,

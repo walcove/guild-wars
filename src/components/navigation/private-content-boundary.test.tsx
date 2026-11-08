@@ -1,0 +1,7 @@
+// @vitest-environment jsdom
+import {afterEach,expect,it,vi} from 'vitest';
+import {render,screen,waitFor,act,cleanup} from '@testing-library/react';
+import {PrivateContentBoundary} from './private-content-boundary';
+afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+it('withholds static server content until a fresh owner/scope check, and removes it on an offline identity change',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({userId:'owner-a'})}));render(<PrivateContentBoundary expectedUserId="owner-a" guildId="guild-a"><p>Retained private record</p></PrivateContentBoundary>);expect(screen.queryByText('Retained private record')).toBeNull();await screen.findByText('Retained private record');act(()=>window.dispatchEvent(new Event('gw:identity-changed')));expect(screen.queryByText('Retained private record')).toBeNull();expect(screen.getByText(/Private content hidden/)).toBeTruthy();});
+it('cannot resurrect old static props from a late identity response after invalidation or show them to a different identity',async()=>{let reply!:(value:unknown)=>void;vi.stubGlobal('fetch',vi.fn(()=>new Promise(resolve=>{reply=resolve;})));render(<PrivateContentBoundary expectedUserId="owner-a"><p>Retained private record</p></PrivateContentBoundary>);act(()=>window.dispatchEvent(new Event('gw:identity-changed')));await act(async()=>{reply({ok:true,json:async()=>({userId:'owner-a'})});});await waitFor(()=>expect(screen.queryByText('Retained private record')).toBeNull());});
