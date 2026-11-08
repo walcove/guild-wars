@@ -68,7 +68,7 @@ export async function closeBallot(db:Pool,id:string,clock?:Clock):Promise<Ballot
  const outcome:BallotOutcome={...decision,strategy:!decision.valid||decision.choiceId===hold?.id?'hold':'call',counts,closedAt:time.savedAt,...(detail?{detail}:{})};
  await tx.query("UPDATE ballots SET state='closed',outcome=$2::jsonb WHERE id=$1",[id,JSON.stringify(outcome)]);await tx.query("INSERT INTO operations(id,kind,state,record) VALUES($1,'close_ballot','complete',$2::jsonb)",['close:'+id,JSON.stringify({ballotId:id,outcome})]);
  if(round.state==='voting'&&ballot.kind==='opening')await changeRoundInTx(tx,round,decision.valid?'execution_window':'unranked',`ballot-close:${id}`,decision.valid?'Canonical ballot closed; individual authorization remains separate':'Invalid ballot: Keep holding; no ranked entry inferred',time.instant);
- await queueBallotNotificationInTx(tx,id);await queueBallotNotificationInTx(tx,id,'result');
+ await queueBallotNotificationInTx(tx,id);await queueBallotNotificationInTx(tx,id,'result');if(round.mode==='simulation')await enqueue(tx,{task:'book_simulation',operationId:`virtual-book:${round.id}`,payload:{roundId:round.id}});
  return {...ballot,state:'closed',outcome};
  });}
 export async function ballotView(db:Pool,userId:string,id:string){const initial=(await db.query<BallotRecord>('SELECT * FROM ballots WHERE id=$1',[id])).rows[0];invariant(initial,'ballot_unavailable','Ballot unavailable');return inGuild(db,userId,initial.guild_id,async tx=>{

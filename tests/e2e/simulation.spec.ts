@@ -1,0 +1,11 @@
+import {test,expect} from '@playwright/test';
+import {Pool} from 'pg';
+import {requireTestDatabaseUrl} from '../../src/server/db/test-target';
+import {transaction} from '../../src/server/db/client';
+import {createSession} from '../../src/server/auth/sessions';
+import {systemClock} from '../../src/domain/clock';
+import {syntheticGuild} from '../integration/helpers/fixtures';
+import {createSeason} from '../../src/server/services/rounds';
+import {syntheticSchedules} from '../../src/domain/synthetic-schedule';
+let db:Pool;test.beforeAll(()=>{db=new Pool({connectionString:requireTestDatabaseUrl(process.env.TEST_DATABASE_URL),max:2});});test.afterAll(async()=>{await db.end();});
+for(const width of [390,1360])test(`explicit virtual season consent at ${width}px`,async({page,context})=>{const f=await syntheticGuild(db),schedules=syntheticSchedules(new Date(Date.now()+1000).toISOString()),season=await createSeason(db,f.userId,f.guildId,{mode:'simulation',division:'synthetic-teaching',rulesVersion:'pilot-1-reserve',schedules},{kind:'synthetic',providerId:'synthetic',expirations:schedules.map(s=>s.expiresAt)}),s=await transaction(db,tx=>createSession(tx,f.userId,systemClock));await context.addCookies([{name:'gw_session',value:s.sessionToken,url:'http://127.0.0.1:3000',httpOnly:true,sameSite:'Lax'},{name:'gw_csrf',value:s.csrfToken,url:'http://127.0.0.1:3000',httpOnly:true,sameSite:'Lax'}]);await page.setViewportSize({width,height:844});await page.goto(`/guilds/${f.guildId}/seasons/${season.id}/simulation`);await expect(page.getByRole('heading',{name:'Your virtual season'})).toBeVisible();const join=page.getByRole('button',{name:'Join the virtual season'});await expect(join).toBeDisabled();await page.getByRole('checkbox',{name:/I opt into all four rounds/}).check();await join.click();await expect(page.getByText('Season virtual-booking consent saved. No real trade authority was granted.')).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);await page.screenshot({path:`.local/screenshots/simulation-${width}.png`,fullPage:true});});

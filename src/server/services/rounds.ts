@@ -25,6 +25,7 @@ export async function createSeason(db:Pool,userId:string,guildId:string,input:Se
   const season=(await tx.query<{id:string}>('INSERT INTO seasons(guild_id,mode,division,rules_version,rules) VALUES($1,$2,$3,$4,$5::jsonb) RETURNING id',[guildId,input.mode,input.division,input.rulesVersion,JSON.stringify(rules)])).rows[0];
   const rounds:{id:string}[]=[];
   for(const [i,s] of input.schedules.entries())rounds.push((await tx.query<{id:string}>("INSERT INTO rounds(guild_id,season_id,mode,number,state,schedule,expires_at) VALUES($1,$2,$3,$4,'research',$5::jsonb,$6) RETURNING id",[guildId,season.id,input.mode,i+1,JSON.stringify(s),s.expiresAt])).rows[0]);
+  if(input.mode==='simulation')for(const [i,round] of rounds.entries()){await enqueue(tx,{task:'capture_simulation',operationId:`virtual-capture:${round.id}`,payload:{roundId:round.id},runAt:new Date(Date.parse(input.schedules[i].voteClose)-1000).toISOString()});await enqueue(tx,{task:'book_simulation',operationId:`virtual-book:${round.id}`,payload:{roundId:round.id},runAt:input.schedules[i].voteClose});}
   await audit(tx,{actorId:userId,guildId,kind:'season_published',recordId:season.id,reason:'Four fixed schedules and mode; source and comparison rules frozen',record:{mode:input.mode,providerId:source.providerId,rulesVersion:input.rulesVersion}});return {id:season.id,rounds};
  });
 }
