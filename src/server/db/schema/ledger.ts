@@ -1,0 +1,6 @@
+import { pgTable,text,uuid,jsonb,index,unique,timestamp } from 'drizzle-orm/pg-core';
+import { id,createdAt } from './common';
+import { sleeves } from './trading';
+export const ledgerEvents=pgTable('ledger_events',{id:id(),sleeveId:uuid('sleeve_id').notNull().references(()=>sleeves.id),operationId:text('operation_id').notNull().unique(),kind:text('kind').notNull(),record:jsonb('record').notNull(),correctsEventId:uuid('corrects_event_id'),observedAt:timestamp('observed_at',{withTimezone:true,mode:'string'}).notNull(),createdAt:createdAt()},t=>[index('ledger_sleeve_time').on(t.sleeveId,t.observedAt)]);
+export const valuationEvents=pgTable('valuation_events',{id:id(),sleeveId:uuid('sleeve_id').notNull().references(()=>sleeves.id),revision:text('revision').notNull(),observedAt:timestamp('observed_at',{withTimezone:true,mode:'string'}).notNull(),record:jsonb('record').notNull(),createdAt:createdAt()},t=>[unique('valuation_revision').on(t.sleeveId,t.observedAt,t.revision)]);
+export const resultSnapshots=pgTable('result_snapshots',{id:id(),sleeveId:uuid('sleeve_id').notNull().references(()=>sleeves.id),revision:text('revision').notNull(),inputHash:text('input_hash').notNull(),record:jsonb('record').notNull(),createdAt:createdAt()},t=>[unique('result_revision').on(t.sleeveId,t.revision)]);

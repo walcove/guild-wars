@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1794106433796,
+      "tag": "0000_ancient_thunderbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794106445331,
+      "tag": "0001_immutable_constraints",
+      "breakpoints": true
+    }
+  ]
+}

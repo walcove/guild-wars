@@ -14,7 +14,7 @@ Canonical progress record. Governing [plan revision 1.2](plans/2026-11-07-guild-
 - [ ] **Task 0: Validate the provider and research-data path** — Readiness documented; Gate 0 Unavailable; see decisions 0001/0002.
 - [ ] **Task 1: Bootstrap the application and compatible dependency set** — Implemented; frozen install, web/worker build, typecheck and lint pass. Four-width shell verification blocked by browser launch sandbox / unavailable browser host; not fully verified.
 - [x] **Task 2: Define domain contracts and financial units** — Exact integer/rational units, currency provenance, contract/mode validation and active-member permissions. 16 unit tests pass; typecheck/lint pass.
-- [ ] **Task 3: Create database schema and repositories** — Pending.
+- [ ] **Task 3: Create database schema and repositories** — Schema, generated/custom migrations, tenant repository boundary, guarded test migration, CI and real-PG constraint test implemented; integration blocked. Six migration-safety unit checks, typecheck and lint pass.
 - [ ] **Task 4: Integrate durable PostgreSQL jobs and audit records** — Pending.
 - [ ] **Task 5: Implement browser sessions and Telegram account linking** — Pending.
 - [ ] **Task 6: Add the regular Telegram bot transport** — Pending.
@@ -86,3 +86,7 @@ Engineering T1–T17 and design D01–D09 remain required. Copied governing plan
 
 - Task 2 RED: `npm run test:unit -- src/domain` → 7 relevant behavior failures against unimplemented contracts (16 tests). GREEN: same command → 16/16 pass; `npm run typecheck`, `npm run lint` → exit 0. Financial JSON uses decimal strings. Unit pass-with-no-tests removed.
 - Pre-flight interfaces: Tasks 2→3/9/10 share string-serialized integer units, explicit mode/denomination and UTC instants; consistent. Tasks 3→4/5/15 share transactional scope and composite tenant keys; schema must enforce these. Tasks 9→17/20 share normalized records but deliberately separate execution methods; no universal submit. Tasks 18/20→19/21 require verification and registration independently; fixture registration never activates live access. Tasks 10/22→24/25 require append-only revisions and complete frozen cohort; no contradiction.
+
+- Task 3: `npm run db:generate` generated 0000; custom 0001 adds mode immutability, append-only triggers and constraints. Migration-safety units 6/6; typecheck/lint exit 0. Compose/migration/integration attempts failed before assertions; [runtime blockers](evidence/local-runtime-blockers.md). No database pass claimed.
+- Ruling: retain incomplete runtime checks and continue only independently verifiable source/rules while infrastructure is unavailable; no alternative fake engine substitutes for PostgreSQL races. Cost if wrong: integration fixes remain before activation.
+- Pre-flight interfaces: Tasks 2→3/9/10 use decimal-string units, explicit mode/denomination and UTC. Tasks 3→4/5/15 require same-transaction enqueue/scope/locks. Tasks 9→17/20 require separate booking versus authorization methods, no universal submit. Tasks 18/20→19/21 independently require verified provider access and registration; fixtures cannot activate real sleeves. Tasks 10/22→24/25 require append-only revisions and complete frozen cohorts. These boundaries are consistent.
