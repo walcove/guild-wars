@@ -1,0 +1,47 @@
+{
+  "evidence": "Local production build; original synthetic records and loopback provider only",
+  "hardware": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "cpu": "Apple M4 Pro",
+    "logicalCpus": 12,
+    "memoryBytes": 25769803776
+  },
+  "dataset": {
+    "guilds": 5,
+    "members": 100,
+    "emulatedVisibleClients": 200,
+    "pollBursts": 2,
+    "intervalMs": 10000,
+    "statusRequests": 400,
+    "voteChanges": 25,
+    "backgroundJobs": 100,
+    "providerTimeouts": 1,
+    "closedBallots": 5
+  },
+  "budgets": {
+    "webConnections": 10,
+    "criticalConnections": 2,
+    "backgroundConnections": 3,
+    "criticalHandlers": 1,
+    "backgroundHandlers": 3,
+    "attempts": 5,
+    "requestTimeoutMs": 8000
+  },
+  "runtimePeaks": {
+    "web": 10,
+    "critical": 2,
+    "background": 3
+  },
+  "extraTestDriverPoolLimit": 4,
+  "providerMax": 3,
+  "backgroundMax": 3,
+  "latencyMs": {
+    "statusP95": 258.66762500000004,
+    "statusMax": 270.62304199999994,
+    "voteTransactionP95": 130.0982079999999,
+    "closeP95": 30.302959000000556,
+    "queueLagMax": 9204
+  },
+  "limitations": "HTTP pollers emulate visible clients; vote transactions use the shared SQL service through a separately identified test-driver pool. This is not native Telegram, provider or production capacity evidence."
+}

@@ -1,3 +1,4 @@
+import {sessionCookieName,csrfCookieName} from './helpers/cookies';
 import {test,expect} from '@playwright/test';
 import {Pool} from 'pg';
 import {systemClock} from '../../src/domain/clock';
@@ -12,7 +13,7 @@ test.beforeAll(()=>{db=new Pool({connectionString:requireTestDatabaseUrl(process
 test.afterAll(async()=>{await db?.end();});
 for(const width of [390,1360])test(`private research and numeric outcomes at ${width}px`,async({page,context})=>{
  const f=await syntheticGuild(db),schedules=syntheticSchedules(new Date(Date.now()+100).toISOString()),season=await createSeason(db,f.userId,f.guildId,{mode:'simulation',division:'synthetic-teaching',rulesVersion:'pilot-1-reserve',schedules},{kind:'synthetic',providerId:'synthetic',expirations:schedules.map(s=>s.expiresAt)}),session=await transaction(db,tx=>createSession(tx,f.userId,systemClock));
- await context.addCookies([{name:'gw_session',value:session.sessionToken,url:'http://127.0.0.1:3000',httpOnly:true,sameSite:'Lax'},{name:'gw_csrf',value:session.csrfToken,url:'http://127.0.0.1:3000',httpOnly:true,sameSite:'Lax'}]);
+ await context.addCookies([{name:sessionCookieName,secure:process.env.GW_E2E_PRODUCTION==='true',value:session.sessionToken,url:process.env.GW_E2E_PRODUCTION==='true'?'https://127.0.0.1:3000':'http://127.0.0.1:3000',httpOnly:true,sameSite:'Lax'},{name:csrfCookieName,secure:process.env.GW_E2E_PRODUCTION==='true',value:session.csrfToken,url:process.env.GW_E2E_PRODUCTION==='true'?'https://127.0.0.1:3000':'http://127.0.0.1:3000',httpOnly:true,sameSite:'Lax'}]);
  await page.setViewportSize({width,height:width<768?844:1000});const base=`/guilds/${f.guildId}/rounds/${season.rounds[0].id}`;
  await page.goto(base+'/research');await expect(page.getByRole('heading',{name:'Sell a covered call, or keep holding SOL?'})).toBeVisible();await expect(page.getByRole('heading',{name:'Keep holding SOL',exact:true})).toBeVisible();
  await expect(page.getByText(/SOL reference price and history are unavailable/)).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);

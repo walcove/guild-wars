@@ -7,6 +7,7 @@ import {inGuild} from '../db/repositories';
 import {transaction,type Tx} from '../db/client';
 import {enqueue} from '../jobs/queue';
 import {audit} from './audit';
+import {membersAtOpening} from './opening-roster';
 export interface SeasonInput {mode:TradingMode;division:string;rulesVersion:string;schedules:RoundSchedule[]}
 // Created only by server catalog/readiness code. HTTP never accepts a readiness object.
 export type SeasonSource={kind:'synthetic';providerId:string;expirations:string[]}|{kind:'verified_catalog';providerId:string;expirations:string[];gate0Passed:true;dataRightsReference:string;recordReference:string;feeReserveLamports:string};
@@ -46,7 +47,9 @@ export async function advanceRoundInTx(tx:Tx,id:string,clock?:Clock):Promise<Rou
   if(row.state==='research'&&t>=Date.parse(s.candidateLock))await step('candidate_lock','Published candidate lock reached');
   if(row.state==='candidate_lock'&&t>=Date.parse(s.voteOpen)) {
    if(t>=Date.parse(s.voteClose)){await step('unranked','Opening snapshot missed; no retroactive roster or favorable entry');return row;}
-   await tx.query("INSERT INTO round_roster(round_id,user_id) SELECT $1,m.user_id FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.guild_id=$2 AND m.status='active' AND m.created_at<=$3 AND u.telegram_id IS NOT NULL ON CONFLICT DO NOTHING",[id,row.guild_id,s.voteOpen]);
+   const roster=await membersAtOpening(tx,row.guild_id,s.voteOpen);
+   if(roster===null){await step('unranked','Opening predates recorded membership coverage; no retrospective denominator');return row;}
+   await tx.query('INSERT INTO round_roster(round_id,user_id) SELECT $1,unnest($2::uuid[]) ON CONFLICT DO NOTHING',[id,roster]);
    await step('voting','Opening roster frozen separately from live participation');
   }
   if(row.state==='voting'&&t>=Date.parse(s.voteClose)) {

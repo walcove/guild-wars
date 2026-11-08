@@ -1,4 +1,4 @@
-import { pgTable,text,uuid,primaryKey,unique,check,timestamp,boolean,integer } from 'drizzle-orm/pg-core';
+import { pgTable,text,uuid,primaryKey,unique,check,timestamp,boolean,integer,bigserial,index } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { id,createdAt } from './common';
 import { users } from './identity';
@@ -7,3 +7,16 @@ export const memberships=pgTable('memberships',{guildId:uuid('guild_id').notNull
 export const groupBindings=pgTable('group_bindings',{id:id(),guildId:uuid('guild_id').notNull().references(()=>guilds.id).unique(),chatId:text('chat_id').notNull().unique(),botId:text('bot_id'),topicId:text('topic_id'),groupUrl:text('group_url'),active:boolean('active').notNull().default(true),administratorId:uuid('administrator_id').notNull().references(()=>users.id),method:text('method').notNull(),verifiedAt:timestamp('verified_at',{withTimezone:true,mode:'string'}).notNull(),createdAt:createdAt()},t=>[unique('binding_guild_id').on(t.id,t.guildId)]);
 
 export const guildInvitations=pgTable('guild_invitations',{id:id(),guildId:uuid('guild_id').notNull().references(()=>guilds.id),createdBy:uuid('created_by').notNull().references(()=>users.id),tokenHash:text('token_hash').notNull().unique(),expiresAt:timestamp('expires_at',{withTimezone:true,mode:'string'}).notNull(),revokedAt:timestamp('revoked_at',{withTimezone:true,mode:'string'}),uses:integer('uses').notNull().default(0),maxUses:integer('max_uses').notNull().default(20),createdAt:createdAt()},t=>[check('invitation_uses',sql`${t.uses} >= 0 and ${t.uses} <= ${t.maxUses} and ${t.maxUses} between 1 and 1000`)]);
+
+// Accepted database membership history; never reconstruct pre-migration openings.
+export const membershipHistory=pgTable('membership_history',{
+ sequence:bigserial('sequence',{mode:'number'}).primaryKey(),
+ guildId:uuid('guild_id').notNull().references(()=>guilds.id),
+ userId:uuid('user_id').notNull().references(()=>users.id),
+ status:text('status').notNull(),
+ effectiveAt:timestamp('effective_at',{withTimezone:true,mode:'string'}).notNull(),
+},t=>[index('membership_history_opening').on(t.guildId,t.userId,t.effectiveAt,t.sequence),check('membership_history_status',sql`${t.status} in ('active','suspended','departed')`)]);
+export const membershipHistoryCoverage=pgTable('membership_history_coverage',{
+ singleton:boolean('singleton').primaryKey().default(true),
+ startedAt:timestamp('started_at',{withTimezone:true,mode:'string'}).notNull(),
+},t=>[check('membership_history_singleton',sql`${t.singleton} = true`)]);

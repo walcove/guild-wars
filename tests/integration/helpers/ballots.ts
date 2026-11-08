@@ -3,11 +3,11 @@ import type {Pool} from 'pg';
 import {syntheticProposal} from './proposals';
 import {snapshotProposal} from '../../../src/server/services/proposals';
 import {opaqueToken} from '../../../src/server/auth/crypto';
-export async function syntheticBallot(db:Pool,milliseconds=60000,missingHold=false,extraMembers:{userId:string;telegramId:string}[]=[],schedule:Record<string,string>={}){
- const f=await syntheticProposal(db,schedule),v=await snapshotProposal(db,f.userId,f.proposal.id,1,f.proposal.reviewHash),at=(await db.query<{t:Date}>('SELECT clock_timestamp() t')).rows[0].t,close=new Date(schedule.voteClose??at.getTime()+milliseconds),open=new Date(close.getTime()-43200000),id=randomUUID(),call=randomUUID(),hold=randomUUID(),callToken=opaqueToken(),holdToken=opaqueToken();
+export async function syntheticBallot(db:Pool,milliseconds=60000,missingHold=false,extraMembers:{userId:string;telegramId:string}[]=[],schedule:Record<string,string>={},base?:Awaited<ReturnType<typeof syntheticProposal>>){
+ const f=base??await syntheticProposal(db,schedule),v=await snapshotProposal(db,f.userId,f.proposal.id,1,f.proposal.reviewHash),at=(await db.query<{t:Date}>('SELECT clock_timestamp() t')).rows[0].t,close=new Date(schedule.voteClose??at.getTime()+milliseconds),open=new Date(close.getTime()-43200000),id=randomUUID(),call=randomUUID(),hold=randomUUID(),callToken=opaqueToken(),holdToken=opaqueToken();
  await db.query("UPDATE rounds SET state='voting' WHERE id=$1",[f.roundId]);await db.query('INSERT INTO round_roster(round_id,user_id) VALUES($1,$2)',[f.roundId,f.userId]);
  await db.query("INSERT INTO ballots(id,guild_id,round_id,state,kind,opens_at,closes_at,rules) VALUES($1,$2,$3,'prepared','opening',$4,$5,'{}')",[id,f.guildId,f.roundId,open,close]);
- for(const m of extraMembers){await db.query("INSERT INTO memberships(guild_id,user_id,role,status) VALUES($1,$2,'member','active')",[f.guildId,m.userId]);await db.query('INSERT INTO round_roster(round_id,user_id) VALUES($1,$2)',[f.roundId,m.userId]);}
+ for(const m of extraMembers){await db.query("INSERT INTO memberships(guild_id,user_id,role,status) VALUES($1,$2,'member','active') ON CONFLICT DO NOTHING",[f.guildId,m.userId]);await db.query('INSERT INTO round_roster(round_id,user_id) VALUES($1,$2)',[f.roundId,m.userId]);}
  await db.query('INSERT INTO ballot_roster(ballot_id,user_id) VALUES($1,$2)',[id,f.userId]);
  for(const m of extraMembers)await db.query('INSERT INTO ballot_roster(ballot_id,user_id) VALUES($1,$2)',[id,m.userId]);
  await db.query("INSERT INTO ballot_choices(id,ballot_id,guild_id,round_id,proposal_version_id,label) VALUES($1,$2,$3,$4,$5,'Call A')",[call,id,f.guildId,f.roundId,v.id]);

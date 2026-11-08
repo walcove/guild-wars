@@ -12,3 +12,7 @@ fieldset { border:0; padding:0; margin:24px 0; min-width:0; } legend { font-size
 
 .financial-facts { display:grid; grid-template-columns:minmax(160px,.8fr) minmax(0,1.2fr); gap:12px 24px; margin:24px 0; padding:20px 0; border-block:1px solid var(--line); } .financial-facts dt { color:var(--muted); } .financial-facts dd { margin:0; overflow-wrap:anywhere; font-family:"JetBrains Mono",monospace; font-size:14px; } @media(max-width:767px) { .financial-facts { grid-template-columns:1fr; gap:4px; } .financial-facts dd { margin-bottom:12px; } }
 .discussion-context { border-left:2px solid var(--secondary); padding:16px 24px; margin:24px 0; background:var(--surface-container-low); } .discussion-context h2 { font-size:20px; } .discussion-context p,.discussion-context li { overflow-wrap:anywhere; }
+.financial-facts dd { font-size:16px; } .checkbox { min-height:44px; } .stat-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:24px; margin-block:24px; } .stat-grid dt { color:var(--muted); } .stat-grid dd { margin:8px 0 0; font:500 22px/1.4 "JetBrains Mono",monospace; overflow-wrap:anywhere; } @media(max-width:767px) { .stat-grid { grid-template-columns:1fr; } }
+
+/* Control boundaries need 3:1 contrast independent of decorative dividers. */
+input,select,textarea { border-color:#71818a; }

@@ -1,0 +1,18 @@
+import {randomUUID,createHash} from 'node:crypto';
+import type {Pool} from 'pg';
+import {syntheticGuild} from './fixtures';
+import {opening as example} from './simulation-input';
+import {canonicalJson} from '../../../src/domain/proposals';
+import {simulationConsentVersion} from '../../../src/server/services/simulation-enrollment';
+import {freezeSimulationSnapshot} from '../../../src/server/jobs/book-simulation';
+// Original restored synthetic state only, never provider or native elapsed-time evidence.
+export async function priorSyntheticRound(db:Pool,withSnapshot=true,hold=false,base?:Awaited<ReturnType<typeof syntheticGuild>>,extraMemberIds:string[]=[]){
+ const f=base??await syntheticGuild(db),stamp=(await db.query<{t:Date}>('SELECT clock_timestamp() t')).rows[0].t,booking=new Date(stamp.getTime()+1500),expiry=new Date(stamp.getTime()+2500),roundId=randomUUID(),versionId=randomUUID(),proposalId=randomUUID(),ballotId=randomUUID(),choiceId=randomUUID();
+ const source={sourceId:'synthetic-q',observedAt:stamp.toISOString(),receivedAt:stamp.toISOString(),synthetic:true},opening=structuredClone(example);opening.bookingAt=booking.toISOString();opening.quote.terms.expiresAt=expiry.toISOString();opening.quote.source=source;opening.quote.validUntil=new Date(booking.getTime()+1000).toISOString();
+ await db.query("INSERT INTO rounds(id,guild_id,season_id,mode,number,state,schedule,expires_at) VALUES($1,$2,$3,'simulation',2,'execution_window',$4::jsonb,$5)",[roundId,f.guildId,f.seasonId,JSON.stringify({voteOpen:new Date(booking.getTime()-43200000).toISOString(),voteClose:booking.toISOString()}),expiry]);
+ await db.query("INSERT INTO proposals(id,guild_id,round_id,author_id,draft) VALUES($1,$2,$3,$4,'{}')",[proposalId,f.guildId,roundId,f.userId]);const content={terms:opening.quote.terms};await db.query('INSERT INTO proposal_versions(id,proposal_id,guild_id,round_id,version,content,content_hash) VALUES($1,$2,$3,$4,1,$5::jsonb,$6)',[versionId,proposalId,f.guildId,roundId,JSON.stringify(content),createHash('sha256').update(canonicalJson(content)).digest('hex')]);
+ // Original, restored prior-state synthetic ballot/enrollment. No live/native source is claimed.
+ await db.query("INSERT INTO ballots(id,guild_id,round_id,state,kind,opens_at,closes_at,rules,outcome) VALUES($1,$2,$3,'prepared','opening',$4,$5,'{}',$6::jsonb)",[ballotId,f.guildId,roundId,new Date(booking.getTime()-43200000),booking,JSON.stringify({valid:true,strategy:hold?'hold':'call',choiceId})]);await db.query('INSERT INTO ballot_choices(id,ballot_id,guild_id,round_id,proposal_version_id,label) VALUES($1,$2,$3,$4,$5,$6)',[choiceId,ballotId,f.guildId,roundId,hold?null:versionId,hold?'Keep holding SOL':'Synthetic call']);await db.query("UPDATE ballots SET state='closed',rules='{\"fixture\":\"synthetic prior state\"}' WHERE id=$1",[ballotId]);await db.query("INSERT INTO simulation_enrollments(season_id,user_id,policy_version,consent,created_at) VALUES($1,$2,$3,'{\"syntheticPriorState\":true}',$4)",[f.seasonId,f.userId,simulationConsentVersion,new Date(booking.getTime()-50000000)]);
+ for(const userId of extraMemberIds.filter(id=>id!==f.userId))await db.query("INSERT INTO simulation_enrollments(season_id,user_id,policy_version,consent,created_at) VALUES($1,$2,$3,'{\"syntheticPriorState\":true}',$4) ON CONFLICT DO NOTHING",[f.seasonId,userId,simulationConsentVersion,new Date(booking.getTime()-50000000)]);
+ const input={policyVersion:'virtual-covered-call-v1' as const,bookingAt:booking.toISOString(),dataClass:'teaching_only' as const,candidates:hold?[]:[{proposalVersionId:versionId,opening}],source,rightsReference:null};if(withSnapshot)await freezeSimulationSnapshot(db,roundId,input);return {...f,roundId,opening,input,expiry,booking};
+}

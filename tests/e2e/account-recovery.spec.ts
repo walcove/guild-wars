@@ -1,3 +1,4 @@
+import {sessionCookieName,csrfCookieName} from './helpers/cookies';
 import { test, expect } from "@playwright/test";
 import { Pool } from "pg";
 import { requireTestDatabaseUrl } from "../../src/server/db/test-target";
@@ -23,23 +24,23 @@ test("an ordinary session read never rewrites its authentication cookie", async 
     s = await transaction(db, (tx) => createSession(tx, f.userId, systemClock));
   await context.addCookies([
     {
-      name: "gw_session",
+      name:sessionCookieName,secure:process.env.GW_E2E_PRODUCTION==='true',
       value: s.sessionToken,
-      url: "http://127.0.0.1:3000",
+      url:process.env.GW_E2E_PRODUCTION==='true'?'https://127.0.0.1:3000':'http://127.0.0.1:3000',
       httpOnly: true,
       sameSite: "Lax",
     },
     {
-      name: "gw_csrf",
+      name:csrfCookieName,secure:process.env.GW_E2E_PRODUCTION==='true',
       value: s.csrfToken,
-      url: "http://127.0.0.1:3000",
+      url:process.env.GW_E2E_PRODUCTION==='true'?'https://127.0.0.1:3000':'http://127.0.0.1:3000',
       httpOnly: true,
       sameSite: "Lax",
     },
   ]);
   const response = await page.request.get("/api/account/session");
   expect(response.status()).toBe(200);
-  expect((response.headers()["set-cookie"] ?? "").includes("gw_session=")).toBe(
+  expect((response.headers()["set-cookie"] ?? "").includes(sessionCookieName+"=")).toBe(
     false
   );
 });
@@ -58,27 +59,27 @@ test("an old revoked-session status response cannot replace a newer sign-in; exp
   await revokeSession(db, old.sessionToken);
   await context.addCookies([
     {
-      name: "gw_session",
+      name:sessionCookieName,secure:process.env.GW_E2E_PRODUCTION==='true',
       value: fresh.sessionToken,
-      url: "http://127.0.0.1:3000",
+      url:process.env.GW_E2E_PRODUCTION==='true'?'https://127.0.0.1:3000':'http://127.0.0.1:3000',
       httpOnly: true,
       sameSite: "Lax",
     },
     {
-      name: "gw_csrf",
+      name:csrfCookieName,secure:process.env.GW_E2E_PRODUCTION==='true',
       value: fresh.csrfToken,
-      url: "http://127.0.0.1:3000",
+      url:process.env.GW_E2E_PRODUCTION==='true'?'https://127.0.0.1:3000':'http://127.0.0.1:3000',
       httpOnly: true,
       sameSite: "Lax",
     },
   ]);
   const delayed = await page.request.get("/api/account/session", {
     headers: {
-      cookie: `gw_session=${old.sessionToken}; gw_csrf=${old.csrfToken}`,
+      cookie: `${sessionCookieName}=${old.sessionToken}; ${csrfCookieName}=${old.csrfToken}`,
     },
   });
   expect(delayed.status()).toBe(401);
-  expect((delayed.headers()["set-cookie"] ?? "").includes("gw_session=")).toBe(
+  expect((delayed.headers()["set-cookie"] ?? "").includes(sessionCookieName+"=")).toBe(
     false
   );
   expect(
@@ -86,9 +87,9 @@ test("an old revoked-session status response cannot replace a newer sign-in; exp
   ).toBe(b.userId);
   await context.addCookies([
     {
-      name: "gw_session",
+      name:sessionCookieName,secure:process.env.GW_E2E_PRODUCTION==='true',
       value: old.sessionToken,
-      url: "http://127.0.0.1:3000",
+      url:process.env.GW_E2E_PRODUCTION==='true'?'https://127.0.0.1:3000':'http://127.0.0.1:3000',
       httpOnly: true,
       sameSite: "Lax",
     },
@@ -99,7 +100,7 @@ test("an old revoked-session status response cannot replace a newer sign-in; exp
   });
   expect(restart.status()).toBe(200);
   expect((await restart.json()).userId).toBeNull();
-  expect((restart.headers()["set-cookie"] ?? "").includes("gw_session=")).toBe(
+  expect((restart.headers()["set-cookie"] ?? "").includes(sessionCookieName+"=")).toBe(
     true
   );
   expect(

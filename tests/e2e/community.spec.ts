@@ -1,3 +1,4 @@
+import {sessionCookieName,csrfCookieName} from './helpers/cookies';
 import { test, expect } from "@playwright/test";
 import { Pool } from "pg";
 import { randomUUID } from "node:crypto";
@@ -30,16 +31,16 @@ for (const width of [390, 1360])
     page.on("pageerror", (e) => errors.push(e.message));
     await context.addCookies([
       {
-        name: "gw_session",
+        name:sessionCookieName,secure:process.env.GW_E2E_PRODUCTION==='true',
         value: s.sessionToken,
-        url: "http://127.0.0.1:3000",
+        url:process.env.GW_E2E_PRODUCTION==='true'?'https://127.0.0.1:3000':'http://127.0.0.1:3000',
         httpOnly: true,
         sameSite: "Lax",
       },
       {
-        name: "gw_csrf",
+        name:csrfCookieName,secure:process.env.GW_E2E_PRODUCTION==='true',
         value: s.csrfToken,
-        url: "http://127.0.0.1:3000",
+        url:process.env.GW_E2E_PRODUCTION==='true'?'https://127.0.0.1:3000':'http://127.0.0.1:3000',
         httpOnly: true,
         sameSite: "Lax",
       },
@@ -194,16 +195,16 @@ test("an ordinary assigned member opens the exact submission and saves a source 
     );
   await context.addCookies([
     {
-      name: "gw_session",
+      name:sessionCookieName,secure:process.env.GW_E2E_PRODUCTION==='true',
       value: s.sessionToken,
-      url: "http://127.0.0.1:3000",
+      url:process.env.GW_E2E_PRODUCTION==='true'?'https://127.0.0.1:3000':'http://127.0.0.1:3000',
       httpOnly: true,
       sameSite: "Lax",
     },
     {
-      name: "gw_csrf",
+      name:csrfCookieName,secure:process.env.GW_E2E_PRODUCTION==='true',
       value: s.csrfToken,
-      url: "http://127.0.0.1:3000",
+      url:process.env.GW_E2E_PRODUCTION==='true'?'https://127.0.0.1:3000':'http://127.0.0.1:3000',
       httpOnly: true,
       sameSite: "Lax",
     },

@@ -1,3 +1,4 @@
+import {guildPageContext} from '@/src/server/services/guild-page-context';
 import { AppShell } from "@/src/components/navigation/app-shell";
 import {
   ResearchCommunity,
@@ -13,12 +14,13 @@ export default async function Page({
 }) {
   const { guildId } = await params,
     user = await pageUser(`/guilds/${guildId}/community`),
-    v = await readCommunity(getPool(), user, guildId);
+    v = await readCommunity(getPool(), user, guildId),
+    shell=await guildPageContext(getPool(),user,guildId);
   return (
     <AppShell expectedUserId={user}
       guild={v.guildName}
       guildId={guildId}
-      context={`Community research · UTC week of ${v.week}`}
+      context={`${shell.context} · Research week of ${v.week}`}
     >
       <ResearchCommunity
         initial={JSON.parse(JSON.stringify(v)) as CommunityView}

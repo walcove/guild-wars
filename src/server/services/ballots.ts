@@ -1,3 +1,4 @@
+import {membersAtOpening} from './opening-roster';
 import {prepareMidweekHoldInTx} from './midweek';
 import {queueBallotNotificationInTx,queueVoteReceiptInTx} from './ballot-notifications';
 import {createHash,randomUUID} from 'node:crypto';
@@ -89,7 +90,11 @@ export async function cancelBallot(db:Pool,userId:string,id:string,reason:string
 async function activateInTx(tx:Tx,ballot:BallotRecord,round:RoundRecord,now:Date):Promise<RoundRecord>{
  invariant((await tx.query('SELECT h.ballot_id FROM house_decisions h JOIN ballots b ON b.id=h.ballot_id WHERE h.ballot_id=$1 AND h.precommitted_at<b.opens_at',[ballot.id])).rowCount===1,'house_unavailable','A verified earlier paper House precommit is required; no retrospective choice is allowed');
  const advanced=await advanceRoundInTx(tx,round.id,{now:()=>now});invariant(advanced.state===(ballot.kind==='midweek'?'midweek':'voting'),'round_unavailable','The round cannot open this ballot');
- if(ballot.kind==='midweek')await tx.query("INSERT INTO ballot_roster(ballot_id,user_id) SELECT $1,m.user_id FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.guild_id=$2 AND m.status='active' AND m.created_at<=$3 ON CONFLICT DO NOTHING",[ballot.id,round.guild_id,ballot.opens_at]);else await tx.query('INSERT INTO ballot_roster(ballot_id,user_id) SELECT $1,user_id FROM round_roster WHERE round_id=$2 ON CONFLICT DO NOTHING',[ballot.id,round.id]);
+ if(ballot.kind==='midweek'){
+  const roster=await membersAtOpening(tx,round.guild_id,ballot.opens_at);
+  invariant(roster!==null,'roster_unavailable','This opening predates recorded membership coverage; no retrospective denominator');
+  await tx.query('INSERT INTO ballot_roster(ballot_id,user_id) SELECT $1,unnest($2::uuid[]) ON CONFLICT DO NOTHING',[ballot.id,roster]);
+ }else await tx.query('INSERT INTO ballot_roster(ballot_id,user_id) SELECT $1,user_id FROM round_roster WHERE round_id=$2 ON CONFLICT DO NOTHING',[ballot.id,round.id]);
  await tx.query("UPDATE ballots SET state='voting' WHERE id=$1 AND state='prepared'",[ballot.id]);ballot.state='voting';return advanced;
 }
 export async function prepareBallot(db:Pool,userId:string,guildId:string,roundId:string,versionIds:string[],requestId:string):Promise<BallotRecord>{
