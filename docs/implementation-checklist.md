@@ -14,7 +14,7 @@ Canonical progress record. Governing [plan revision 1.2](plans/2026-11-07-guild-
 - [ ] **Task 0: Validate the provider and research-data path** — Readiness documented; Gate 0 Unavailable; see decisions 0001/0002.
 - [ ] **Task 1: Bootstrap the application and compatible dependency set** — Implemented; frozen install, web/worker build, typecheck and lint pass. Four-width shell verification blocked by browser launch sandbox / unavailable browser host; not fully verified.
 - [x] **Task 2: Define domain contracts and financial units** — Exact integer/rational units, currency provenance, contract/mode validation and active-member permissions. 16 unit tests pass; typecheck/lint pass.
-- [ ] **Task 3: Create database schema and repositories** — Schema, generated/custom migrations, tenant repository boundary, guarded test migration, CI and real-PG constraint test implemented; integration blocked. Six migration-safety unit checks, typecheck and lint pass.
+- [x] **Task 3: Create database schema and repositories** — Migrations 0000–0002 applied on isolated PostgreSQL 16; real constraint test passes, including attribution remedies. Migration guard units and full verify pass. Runtime verification restored.
 - [ ] **Task 4: Integrate durable PostgreSQL jobs and audit records** — Pending.
 - [ ] **Task 5: Implement browser sessions and Telegram account linking** — Pending.
 - [ ] **Task 6: Add the regular Telegram bot transport** — Pending.
@@ -101,3 +101,5 @@ Engineering T1–T17 and design D01–D09 remain required. Copied governing plan
 - Latest verification: `npm run test:unit` → 45/45, `npm run test:contracts` → 3/3; targeted strict TypeScript compile of schema/provider/integration/contract sources → exit 0; `npm run db:generate` → migration 0002. Application manifest/lock unchanged by isolated check tools.
 - Deferred minor: research-note proposal-version tenant FK must land before attachment services. Deferred minor: shell browser job must be added to CI after runtime access is restored.
 - Next actionable step: free stable disk (several GB), restore Docker/PostgreSQL and browser availability, run `npm ci`, `docker compose -f compose.test.yml up -d --wait`, guarded `npm run db:migrate:test`, schema integration checks, then resume Task 3/4 and the full auth/bot flow. Credentials/permissions remain required only for dependent provider/test-bot checks. No remaining task is silently removed or marked complete.
+
+- Resumed with 17 GiB free. `npm ci` restored the frozen install; `npm run verify` passed including /learn production build. Docker test volume from the ENOSPC incident contains NUL-filled lock data; preserved it and selected a fresh named test volume (no existing volume deleted). Compose healthy; guarded migrations 0000–0002 applied; schema-constraints integration passed on PostgreSQL 16.11. Task 3 no longer blocked.

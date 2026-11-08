@@ -8,9 +8,13 @@ services:
     ports:
       - "127.0.0.1:54329:5432"
     volumes:
+      - postgres_test_data:/var/lib/postgresql/data
       - ./scripts/init-test.sql:/docker-entrypoint-initdb.d/001-runtime-role.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U guild_wars_migrator -d guild_wars_test"]
       interval: 2s
       timeout: 3s
       retries: 20
+
+volumes:
+  postgres_test_data:
