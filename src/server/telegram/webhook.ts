@@ -10,7 +10,7 @@ import {linkCallback,type CallbackActor,type CallbackReceipt} from './callbacks'
 import {applyMembershipEvent} from './membership-events';
 import type {BotButton} from './render';
 export interface BotConfiguration {botId:string;username:string;secret:string;origin:string}
-export interface TelegramTransport {send:(chatId:string,text:string,buttons?:BotButton[][],topicId?:string|null)=>Promise<{messageId:string}>;answer:(id:string,text:string)=>Promise<void>}
+export interface TelegramTransport {edit?:(chatId:string,messageId:string,text:string,buttons?:BotButton[][])=>Promise<void>;send:(chatId:string,text:string,buttons?:BotButton[][],topicId?:string|null)=>Promise<{messageId:string}>;answer:(id:string,text:string)=>Promise<void>}
 export interface WebhookServices {castBallot?:(tx:Tx,token:string,actor:CallbackActor)=>Promise<CallbackReceipt>}
 const integer=z.number().int().safe();
 const user=z.object({id:integer.positive()});
@@ -48,13 +48,14 @@ export async function processUpdate(db:Pool,secret:string|null,raw:unknown,confi
   const prior=(await tx.query('SELECT receipt FROM consumed_updates WHERE bot_id=$1 AND update_id=$2',[config.botId,update.update_id.toString()])).rows[0];if(prior)return prior.receipt as CallbackReceipt;
   let result:CallbackReceipt;
   if(membership) {
+   if(update.my_chat_member&&membership.chat.type==='private'&&membership.new_chat_member.user.id.toString()===config.botId)await tx.query('UPDATE bot_starts SET blocked_at=CASE WHEN $3 THEN clock_timestamp() ELSE NULL END WHERE bot_id=$1 AND telegram_id=$2',[config.botId,membership.chat.id.toString(),['kicked','left'].includes(membership.new_chat_member.status)]);
    await applyMembershipEvent(tx,membership,!!update.my_chat_member,config.botId);result={status:'saved',message:'Membership event applied'};
   } else if(callback) {
    const actor={telegramId:callback.from.id.toString(),chatId:callback.message!.chat.id.toString(),chatType:callback.message!.chat.type,messageId:callback.message!.message_id.toString()};
    if(callback.data!.startsWith('l:'))result=await linkCallback(tx,callback.data!,actor);
    else {invariant(callback.data!.startsWith('b:')&&services.castBallot,'unavailable','This ballot is unavailable; open its canonical record');result=await services.castBallot(tx,callback.data!.slice(2),actor);}
   }else {
-   if(command?.command==='start'&&command.chatType==='private')await tx.query('UPDATE users SET bot_started_at=clock_timestamp() WHERE telegram_id=$1',[command.senderId]);
+   if(command?.command==='start'&&command.chatType==='private'){await tx.query('INSERT INTO bot_starts(bot_id,telegram_id) VALUES($1,$2) ON CONFLICT(bot_id,telegram_id) DO UPDATE SET started_at=clock_timestamp(),blocked_at=NULL',[config.botId,command.senderId]);await tx.query('UPDATE users SET bot_started_at=clock_timestamp() WHERE telegram_id=$1',[command.senderId]);}
    const operationId=`telegram:${config.botId}:${update.update_id}`;
    await tx.query("INSERT INTO operations(id,kind,state,record) VALUES($1,'telegram_command','pending',$2::jsonb)",[operationId,JSON.stringify(command)]);
    await enqueue(tx,{task:'telegram_command',operationId,payload:{operationId}});

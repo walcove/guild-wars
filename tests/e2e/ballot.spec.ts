@@ -1,0 +1,10 @@
+import {test,expect} from '@playwright/test';
+import {Pool} from 'pg';
+import {requireTestDatabaseUrl} from '../../src/server/db/test-target';
+import {transaction} from '../../src/server/db/client';
+import {createSession} from '../../src/server/auth/sessions';
+import {systemClock} from '../../src/domain/clock';
+import {syntheticBallot} from '../integration/helpers/ballots';
+import {castVote} from '../../src/server/services/ballots';
+let db:Pool;test.beforeAll(()=>{db=new Pool({connectionString:requireTestDatabaseUrl(process.env.TEST_DATABASE_URL),max:2});});test.afterAll(async()=>{await db.end();});
+for(const width of [390,1360])test(`owner-only saved ballot receipt at ${width}px`,async({page,context})=>{const f=await syntheticBallot(db);await castVote(db,f.callToken,f.actor,'9001');const s=await transaction(db,tx=>createSession(tx,f.userId,systemClock));await context.addCookies([{name:'gw_session',value:s.sessionToken,url:'http://127.0.0.1:3000',httpOnly:true,sameSite:'Lax'}]);await page.setViewportSize({width,height:844});await page.goto(`/ballots/${f.id}/receipt`);await expect(page.getByRole('heading',{name:'Saved: Call A'})).toBeVisible();await expect(page.getByRole('link',{name:'Review my exact proposal version'})).toHaveAttribute('href',/version=/);expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);await page.screenshot({path:`.local/screenshots/receipt-${width}.png`,fullPage:true});await context.clearCookies();const r=await page.request.get(`/api/ballots/${f.id}/receipt`);expect(r.status()).toBe(401);});

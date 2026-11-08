@@ -1,0 +1,13 @@
+import {expect,it} from 'vitest';
+import {ballotCard,privateVoteCard,type PublicBallotSnapshot} from '../../src/server/telegram/ballot-messages';
+const snapshot:PublicBallotSnapshot={id:'ballot',guildId:'guild',guildName:'Synthetic guild',roundId:'round',roundNumber:1,mode:'simulation',state:'voting',windowClosed:false,opensAt:'2030-01-01T00:00:00.000Z',closesAt:'2030-01-01T12:00:00.000Z',eligibleCount:5,participation:2,quorum:3,choices:[{id:'call',label:'Call A · proposal v1',proposalVersionId:'version-1',proposalId:'proposal',strike:'110 USD/SOL',mainRisk:'SOL may fall',token:'a'.repeat(43)},{id:'hold',label:'Keep holding SOL',proposalVersionId:null,proposalId:null,strike:null,mainRisk:null,token:'b'.repeat(43)}],outcome:null,cancelReason:null,supersededBy:null,house:{precommittedAt:'2029-12-31T23:59:00.000Z',policyVersion:'highest-strike-v1',kind:'hold'}};
+it('shows public participation and version-bound buttons without disclosing another member choice',()=>{
+ const card=ballotCard({...snapshot,ownVote:'secret member choice'} as PublicBallotSnapshot,'http://127.0.0.1:3000');expect(card.text).toContain('2 of 5');expect(card.text).toContain('Quorum: 3');expect(card.text).not.toContain('secret member choice');expect(card.text).not.toContain('Call A: 2');expect(JSON.stringify(card.buttons)).toContain('b:'+('a'.repeat(43)));expect(JSON.stringify(card.buttons)).not.toContain('web_app');expect(card.text).toContain('UTC');
+});
+it('removes voting controls at the server deadline and reveals counts only after canonical closure',()=>{
+ const closing=ballotCard({...snapshot,windowClosed:true},'http://127.0.0.1:3000');expect(JSON.stringify(closing.buttons)).not.toContain('callback_data');expect(closing.text).toContain('confirmation');
+ const closed=ballotCard({...snapshot,state:'closed',windowClosed:true,outcome:{choiceId:'hold',reason:'tie',counts:[{choiceId:'call',votes:2},{choiceId:'hold',votes:2}],strategy:'hold',valid:true}},'http://127.0.0.1:3000');expect(closed.text).toContain('tie');expect(closed.text).toContain('Call A · proposal v1: 2');expect(closed.text).not.toContain('Trade executed');expect(JSON.stringify(closed.buttons)).not.toContain('callback_data');
+});
+it('renders private receipts only from the supplied owner receipt and exact canonical record',()=>{
+ const card=privateVoteCard({ballotId:'ballot',guildName:'Synthetic guild',roundNumber:1,mode:'live',choiceLabel:'Keep holding SOL',revision:2,savedAt:'2030-01-01T01:00:00.000Z',proposalVersionId:null},'http://127.0.0.1:3000');expect(card.text).toContain('Saved: Keep holding SOL');expect(card.text).toContain('not a trade');expect(JSON.stringify(card.buttons)).toContain('/ballots/ballot/receipt');
+});

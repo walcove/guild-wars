@@ -1,0 +1,23 @@
+import type {TradingMode} from '../../domain/types';
+import {escapeHtml,type BotCard,type BotButton} from './render';
+export interface PublicBallotSnapshot {id:string;guildId:string;guildName:string;roundId:string;roundNumber:number;mode:TradingMode;state:string;windowClosed:boolean;opensAt:string;closesAt:string;eligibleCount:number;participation:number;quorum:number;choices:{id:string;label:string;proposalVersionId:string|null;proposalId:string|null;strike:string|null;mainRisk:string|null;token?:string}[];outcome:{choiceId:string|null;reason:string;counts:{choiceId:string;votes:number}[];strategy:string;valid:boolean}|null;cancelReason:string|null;supersededBy:string|null;house:{precommittedAt:string;policyVersion:string;kind:string}|null}
+export interface PrivateVoteSnapshot {ballotId:string;guildName:string;roundNumber:number;mode:TradingMode;choiceLabel:string;revision:number;savedAt:string;proposalVersionId:string|null}
+const short=(value:string,n=80)=>escapeHtml([...value].slice(0,n).join(''))+([...value].length>n?'…':'');
+export function ballotCard(s:PublicBallotSnapshot,origin:string):BotCard {
+ const research=new URL(`/guilds/${s.guildId}/rounds/${s.roundId}/research`,origin).toString(),receipt=new URL(`/ballots/${s.id}/receipt`,origin).toString(),buttons:BotButton[][]=[];
+ const open=s.state==='voting'&&!s.windowClosed,scheduled=s.state==='prepared'&&!s.windowClosed;
+ let heading=open?'Choose your shared covered-call plan':scheduled?'Ballot scheduled':s.state==='superseded'?'This ballot was replaced':s.state==='cancelled'?'This ballot was cancelled':s.state==='closed'?'Ballot closed':'Voting ended; awaiting canonical confirmation';
+ if(s.state==='closed'&&s.outcome)heading=s.outcome.strategy==='hold'?'Keep holding SOL':`Shared plan selected: ${s.choices.find(c=>c.id===s.outcome!.choiceId)?.label??'see canonical record'}`;
+ const lines=[`<b>${escapeHtml(heading)}</b>`,`${short(s.guildName)} · Round ${s.roundNumber} · ${s.mode==='simulation'?'Simulation':'Real trading'}`,`Ballot: ${escapeHtml(s.id)}`,`Opens (UTC): ${new Date(s.opensAt).toUTCString()}`,`Closes (UTC): ${new Date(s.closesAt).toUTCString()}`];
+ if(scheduled)lines.push('The active-member roster freezes at opening; a strict majority is required.');else lines.push(`Participation: ${s.participation} of ${s.eligibleCount} · Quorum: ${s.quorum}`);
+ for(const c of s.choices){lines.push(`${short(c.label)}${c.strike?' · '+short(c.strike):''}${c.mainRisk?'\nMain concern: '+short(c.mainRisk,60):''}`);if((open||scheduled)&&c.token)buttons.push([{text:[...c.label].slice(0,64).join(''),callback_data:'b:'+c.token}]);}
+ if(s.state==='closed'&&s.outcome){lines.push(`Reason: ${escapeHtml(s.outcome.reason)}${s.outcome.valid?'':' · unranked / invalid input'}`);for(const count of s.outcome.counts)lines.push(`${short(s.choices.find(c=>c.id===count.choiceId)?.label??'Unavailable choice')}: ${count.votes}`);lines.push(s.mode==='simulation'?'Virtual booking follows the locked simulation policy; this message is not a fill.':'Each member reviews and authorizes their own order separately.');}
+ if(s.cancelReason)lines.push('Reason: '+short(s.cancelReason,140));
+ lines.push(s.house?`Paper House locked before voting · ${escapeHtml(s.house.policyVersion)} · ${new Date(s.house.precommittedAt).toUTCString()}`:'Paper House precommit unavailable; no retrospective choice is assumed.');
+ lines.push('A call caps upside; SOL can still fall. Holding is a full choice. A vote is not a trade and never authorizes someone else’s funds.');
+ if(s.supersededBy)buttons.push([{text:'Open the replacement record',url:new URL(`/ballots/${s.supersededBy}/receipt`,origin).toString()}]);
+ buttons.push([{text:'Research and compare outcomes',url:research}],[{text:'Check my saved receipt',url:receipt}]);return {text:lines.join('\n'),buttons};
+}
+export function privateVoteCard(s:PrivateVoteSnapshot,origin:string):BotCard {
+ return {text:`<b>Saved: ${short(s.choiceLabel,100)}</b>\n${short(s.guildName)} · Round ${s.roundNumber} · ${s.mode==='simulation'?'Simulation':'Real trading'}\nBallot ${escapeHtml(s.ballotId)} · revision ${s.revision}\n${s.proposalVersionId?'Proposal version: '+escapeHtml(s.proposalVersionId)+'\n':''}Saved ${new Date(s.savedAt).toUTCString()}\nThis is your committed receipt, not a trade. The website shows your current saved vote and server deadline.`,buttons:[[{text:'Open my private saved receipt',url:new URL(`/ballots/${s.ballotId}/receipt`,origin).toString()}]]};
+}

@@ -13,6 +13,7 @@ export function telegramTransport():TelegramTransport {
  const enabled=()=>invariant(process.env.GW_TELEGRAM_SENDING_ENABLED==='true','unavailable','Telegram sending is disabled in this environment');
  return {
   send:async(chatId,text,buttons,topicId)=>{enabled();invariant(!topicId||(Number.isSafeInteger(Number(topicId))&&Number(topicId)>0),'invalid_topic','Topic identifier is outside the supported range');const sent=await api.sendMessage(chatId,text,{message_thread_id:topicId?Number(topicId):undefined,parse_mode:'HTML',reply_markup:buttons?{inline_keyboard:buttons}:undefined});return {messageId:sent.message_id.toString()};},
+  edit:async(chatId,messageId,text,buttons)=>{enabled();invariant(Number.isSafeInteger(Number(messageId))&&Number(messageId)>0,'invalid_message','Message identifier is invalid');await api.editMessageText(chatId,Number(messageId),text,{parse_mode:'HTML',reply_markup:buttons?{inline_keyboard:buttons}:undefined});},
   answer:async(id,text)=>{enabled();await callbacks.answerCallbackQuery(id,{text:text.slice(0,200)});},
  };
 }

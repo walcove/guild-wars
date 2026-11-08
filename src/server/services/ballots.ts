@@ -1,3 +1,4 @@
+import {queueBallotNotificationInTx,queueVoteReceiptInTx} from './ballot-notifications';
 import {createHash,randomUUID} from 'node:crypto';
 import type {Pool} from 'pg';
 import type {Clock} from '../../domain/clock';
@@ -53,6 +54,7 @@ export async function castVoteInTx(tx:Tx,token:string,actor:CallbackActor,botId:
  if(previous?.choice_id===choice.id)return {status:'saved',message:`Already saved: ${choice.label}. Check your private receipt.`,ballotId:ballot.id,choiceId:choice.id,revision:previous.revision,savedAt:previous.saved_at.toISOString(),proposalVersionId:choice.proposal_version_id,mode:round.mode};
  const revision=(previous?.revision??0)+1;await tx.query('INSERT INTO votes(ballot_id,user_id,choice_id,revision,saved_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(ballot_id,user_id) DO UPDATE SET choice_id=EXCLUDED.choice_id,revision=EXCLUDED.revision,saved_at=EXCLUDED.saved_at',[ballot.id,roster.id,choice.id,revision,time.savedAt]);
  await tx.query('INSERT INTO vote_events(ballot_id,user_id,choice_id,revision,saved_at) VALUES($1,$2,$3,$4,$5)',[ballot.id,roster.id,choice.id,revision,time.savedAt]);
+ await queueBallotNotificationInTx(tx,ballot.id);await queueVoteReceiptInTx(tx,ballot.id,roster.id,revision);
  return {status:'saved',message:`Saved: ${choice.label} · round ${round.number} · ${time.savedAt}. A vote is not a trade.`,ballotId:ballot.id,choiceId:choice.id,revision,savedAt:time.savedAt,proposalVersionId:choice.proposal_version_id,mode:round.mode};
 }
 export async function castVote(db:Pool,token:string,actor:CallbackActor,botId:string,clock?:Clock):Promise<CallbackReceipt>{return transaction(db,tx=>castVoteInTx(tx,token,actor,botId,clock));}
@@ -66,16 +68,18 @@ export async function closeBallot(db:Pool,id:string,clock?:Clock):Promise<Ballot
  const outcome:BallotOutcome={...decision,strategy:!decision.valid||decision.choiceId===hold?.id?'hold':'call',counts,closedAt:time.savedAt,...(detail?{detail}:{})};
  await tx.query("UPDATE ballots SET state='closed',outcome=$2::jsonb WHERE id=$1",[id,JSON.stringify(outcome)]);await tx.query("INSERT INTO operations(id,kind,state,record) VALUES($1,'close_ballot','complete',$2::jsonb)",['close:'+id,JSON.stringify({ballotId:id,outcome})]);
  if(round.state==='voting'&&ballot.kind==='opening')await changeRoundInTx(tx,round,decision.valid?'execution_window':'unranked',`ballot-close:${id}`,decision.valid?'Canonical ballot closed; individual authorization remains separate':'Invalid ballot: Keep holding; no ranked entry inferred',time.instant);
+ await queueBallotNotificationInTx(tx,id);await queueBallotNotificationInTx(tx,id,'result');
  return {...ballot,state:'closed',outcome};
  });}
 export async function ballotView(db:Pool,userId:string,id:string){const initial=(await db.query<BallotRecord>('SELECT * FROM ballots WHERE id=$1',[id])).rows[0];invariant(initial,'ballot_unavailable','Ballot unavailable');return inGuild(db,userId,initial.guild_id,async tx=>{
  const ballot=(await tx.query<BallotRecord>('SELECT * FROM ballots WHERE id=$1',[id])).rows[0],time=await ballotClock(tx,id),participation=(await tx.query<{n:number}>('SELECT count(*)::int n FROM votes WHERE ballot_id=$1',[id])).rows[0].n;
- const ownReceipt=(await tx.query<{choiceId:string;label:string;revision:number;savedAt:Date;proposalVersionId:string|null}>('SELECT v.choice_id AS "choiceId",c.label,v.revision,v.saved_at AS "savedAt",c.proposal_version_id AS "proposalVersionId" FROM votes v JOIN ballot_choices c ON c.id=v.choice_id WHERE v.ballot_id=$1 AND v.user_id=$2',[id,userId])).rows[0]??null;
+ const ownReceipt=(await tx.query<{choiceId:string;label:string;revision:number;savedAt:Date;proposalVersionId:string|null;proposalId:string|null}>('SELECT v.choice_id AS "choiceId",c.label,v.revision,v.saved_at AS "savedAt",c.proposal_version_id AS "proposalVersionId",p.proposal_id AS "proposalId" FROM votes v JOIN ballot_choices c ON c.id=v.choice_id LEFT JOIN proposal_versions p ON p.id=c.proposal_version_id WHERE v.ballot_id=$1 AND v.user_id=$2',[id,userId])).rows[0]??null;
  const rosterCount=(await tx.query<{n:number}>('SELECT count(*)::int n FROM ballot_roster WHERE ballot_id=$1',[id])).rows[0].n;
- return {id,state:ballot.state,opensAt:ballot.opens_at,closesAt:ballot.closes_at,participation,eligibleCount:rosterCount,quorum:Math.floor(rosterCount/2)+1,ownReceipt,counts:time.hasClosed&&ballot.state==='closed'?ballot.outcome?.counts??null:null,outcome:time.hasClosed&&ballot.state==='closed'?ballot.outcome:null,cancelReason:ballot.cancel_reason,supersededBy:ballot.superseded_by};
+ const context=(await tx.query<{guildName:string;roundNumber:number;mode:'simulation'|'live';stage:string}>('SELECT g.name AS "guildName",r.number AS "roundNumber",r.mode,r.state AS stage FROM rounds r JOIN guilds g ON g.id=r.guild_id WHERE r.id=$1',[ballot.round_id])).rows[0],eligible=(await tx.query('SELECT user_id FROM ballot_roster WHERE ballot_id=$1 AND user_id=$2',[id,userId])).rowCount===1;
+ return {id,guildId:ballot.guild_id,roundId:ballot.round_id,...context,eligible,windowClosed:time.hasClosed,checkedAt:time.savedAt,state:ballot.state,opensAt:ballot.opens_at,closesAt:ballot.closes_at,participation,eligibleCount:rosterCount,quorum:Math.floor(rosterCount/2)+1,ownReceipt,counts:time.hasClosed&&ballot.state==='closed'?ballot.outcome?.counts??null:null,outcome:time.hasClosed&&ballot.state==='closed'?ballot.outcome:null,cancelReason:ballot.cancel_reason,supersededBy:ballot.superseded_by};
  });}
 export async function cancelBallot(db:Pool,userId:string,id:string,reason:string):Promise<void>{invariant(reason.trim().length>=5&&reason.length<=1000,'reason_required','Cancellation requires a visible reason');const first=(await db.query<BallotRecord>('SELECT * FROM ballots WHERE id=$1',[id])).rows[0];invariant(first,'ballot_unavailable','Ballot unavailable');await inGuild(db,userId,first.guild_id,async(tx,scope)=>{
- invariant(['captain','administrator'].includes(scope.membership.role),'forbidden','A captain or administrator coordinates ballot cancellation');const {ballot,round}=await lockBallot(tx,id),time=await ballotClock(tx,id);invariant(['prepared','voting'].includes(ballot.state)&&!time.hasClosed,'ballot_closed','A closed ballot cannot be rewritten');await tx.query("UPDATE ballots SET state='cancelled',cancel_reason=$2 WHERE id=$1",[id,reason]);await audit(tx,{actorId:userId,guildId:ballot.guild_id,kind:'ballot_cancelled',recordId:id,reason});if(round.state==='voting')await changeRoundInTx(tx,round,'unranked',`ballot-cancel:${id}`,'Ballot cancelled: '+reason,time.instant);
+ invariant(['captain','administrator'].includes(scope.membership.role),'forbidden','A captain or administrator coordinates ballot cancellation');const {ballot,round}=await lockBallot(tx,id),time=await ballotClock(tx,id);invariant(['prepared','voting'].includes(ballot.state)&&!time.hasClosed,'ballot_closed','A closed ballot cannot be rewritten');await tx.query("UPDATE ballots SET state='cancelled',cancel_reason=$2 WHERE id=$1",[id,reason]);await audit(tx,{actorId:userId,guildId:ballot.guild_id,kind:'ballot_cancelled',recordId:id,reason});await queueBallotNotificationInTx(tx,id);if(round.state==='voting')await changeRoundInTx(tx,round,'unranked',`ballot-cancel:${id}`,'Ballot cancelled: '+reason,time.instant);
  });}
 
 async function activateInTx(tx:Tx,ballot:BallotRecord,round:RoundRecord,now:Date):Promise<RoundRecord>{
@@ -85,7 +89,7 @@ async function activateInTx(tx:Tx,ballot:BallotRecord,round:RoundRecord,now:Date
  await tx.query("UPDATE ballots SET state='voting' WHERE id=$1 AND state='prepared'",[ballot.id]);ballot.state='voting';return advanced;
 }
 export async function prepareBallot(db:Pool,userId:string,guildId:string,roundId:string,versionIds:string[],requestId:string):Promise<BallotRecord>{
- z.array(z.uuid()).max(2).parse(versionIds);z.uuid().parse(requestId);invariant(new Set(versionIds).size===versionIds.length,'invalid_candidates','Each candidate version may appear only once');
+ invariant(versionIds.length>=1&&versionIds.length<=2,'invalid_candidates','Select one or two exact shared proposals; Keep holding is always added');z.array(z.uuid()).max(2).parse(versionIds);z.uuid().parse(requestId);invariant(new Set(versionIds).size===versionIds.length,'invalid_candidates','Each candidate version may appear only once');
  return inGuild(db,userId,guildId,async(tx,scope)=>{
   invariant(['captain','administrator'].includes(scope.membership.role),'forbidden','A captain or administrator nominates the final candidates');
   const binding=(await tx.query('SELECT * FROM group_bindings WHERE guild_id=$1 FOR SHARE',[guildId])).rows[0];invariant(binding?.active&&binding.bot_id,'group_unavailable','Verify the current guild group and bot first');
@@ -105,10 +109,10 @@ export async function prepareBallot(db:Pool,userId:string,guildId:string,roundId
   for(const choice of await choices(tx,ballot.id))await tx.query('INSERT INTO callback_tokens(token,ballot_id,choice_id,chat_id,proposal_version_id) VALUES($1,$2,$3,$4,$5)',[opaqueToken(),ballot.id,choice.id,binding.chat_id,choice.proposal_version_id]);
   await tx.query("INSERT INTO operations(id,kind,state,record) VALUES($1,'prepare_ballot','complete',$2::jsonb)",[operationId,JSON.stringify({ballotId:ballot.id,versions:versionIds})]);
   await enqueue(tx,{task:'close_ballot',operationId:`close:${ballot.id}`,payload:{ballotId:ballot.id},runAt:round.schedule.voteClose});
-  await audit(tx,{actorId:userId,guildId,kind:'ballot_prepared',recordId:ballot.id,reason:'Exact candidate versions and original twelve-hour timetable locked; roster freezes at opening'});return {...ballot,rules};
+  await queueBallotNotificationInTx(tx,ballot.id);await audit(tx,{actorId:userId,guildId,kind:'ballot_prepared',recordId:ballot.id,reason:'Exact candidate versions and original twelve-hour timetable locked; roster freezes at opening'});return {...ballot,rules};
  });
 }
-export async function activatePreparedBallot(db:Pool,id:string):Promise<void>{await transaction(db,async tx=>{const {ballot,round,binding}=await lockBallot(tx,id),time=await ballotClock(tx,id);if(ballot.state!=='prepared'||!time.timely||!binding?.active||binding.bot_id!==ballot.rules.botId)return;await activateInTx(tx,ballot,round,time.instant);});}
+export async function activatePreparedBallot(db:Pool,id:string):Promise<void>{await transaction(db,async tx=>{const {ballot,round,binding}=await lockBallot(tx,id),time=await ballotClock(tx,id);if(ballot.state!=='prepared'||!time.timely||!binding?.active||binding.bot_id!==ballot.rules.botId)return;await activateInTx(tx,ballot,round,time.instant);await queueBallotNotificationInTx(tx,id);});}
 export async function supersedeBallot(db:Pool,userId:string,id:string,reason:string):Promise<BallotRecord>{
  invariant(reason.trim().length>=5&&reason.length<=1000,'reason_required','A visible replacement reason is required');const first=(await db.query<BallotRecord>('SELECT * FROM ballots WHERE id=$1',[id])).rows[0];invariant(first,'ballot_unavailable','Ballot unavailable');
  return inGuild(db,userId,first.guild_id,async(tx,scope)=>{
@@ -122,7 +126,7 @@ export async function supersedeBallot(db:Pool,userId:string,id:string,reason:str
   const rules={...ballot.rules,botId:binding.bot_id,holdChoiceId:holdId!};await tx.query('UPDATE ballots SET rules=$2::jsonb WHERE id=$1',[replacement.id,JSON.stringify(rules)]);
   await inheritHouseInTx(tx,id,replacement.id);await tx.query('INSERT INTO ballot_roster(ballot_id,user_id) SELECT $1,user_id FROM ballot_roster WHERE ballot_id=$2',[replacement.id,id]);if(ballot.state==='voting'){await tx.query("UPDATE ballots SET state='voting' WHERE id=$1",[replacement.id]);replacement.state='voting';}
   await enqueue(tx,{task:'close_ballot',operationId:`close:${replacement.id}`,payload:{ballotId:replacement.id},runAt:ballot.closes_at.toISOString()});
-  await audit(tx,{actorId:userId,guildId:ballot.guild_id,kind:'ballot_superseded',recordId:id,reason,record:{newBallotId:replacement.id,unchangedDeadline:ballot.closes_at.toISOString(),lockedVersionsUnchanged:true,votesNotTransferred:true}});return {...replacement,rules};
+  await queueBallotNotificationInTx(tx,id);await queueBallotNotificationInTx(tx,replacement.id);await audit(tx,{actorId:userId,guildId:ballot.guild_id,kind:'ballot_superseded',recordId:id,reason,record:{newBallotId:replacement.id,unchangedDeadline:ballot.closes_at.toISOString(),lockedVersionsUnchanged:true,votesNotTransferred:true}});return {...replacement,rules};
  });
 }
 export async function recoverMissingBallotForRound(db:Pool,roundId:string,clock?:Clock):Promise<boolean>{return transaction(db,async tx=>{
@@ -132,3 +136,9 @@ export async function recoverMissingBallotForRound(db:Pool,roundId:string,clock?
  await changeRoundInTx(tx,round,'unranked',`missing-opening:${roundId}`,'No opening ballot was prepared by the deadline: Keep holding; no ranked entry or vote tally inferred',now);
  await audit(tx,{guildId:round.guild_id,kind:'round_fallback_recorded',recordId:roundId,reason:'Missing opening ballot: explicit unranked holding fallback',record:{strategy:'hold',dataQuality:'unranked',notVoteOutcome:true}});return true;
  });}
+export async function ballotCandidates(db:Pool,userId:string,guildId:string,roundId:string){return inGuild(db,userId,guildId,async(tx,scope)=>{
+ const round=(await tx.query<RoundRecord>('SELECT * FROM rounds WHERE id=$1 AND guild_id=$2',[roundId,guildId])).rows[0];invariant(round,'round_unavailable','Round unavailable');
+ const versions=(await tx.query<{id:string;proposalId:string;version:number;strike:string|null;denomination:string|null}>('SELECT DISTINCT ON (v.proposal_id) v.id,v.proposal_id AS "proposalId",v.version,v.content#>>\'{terms,strike,amount}\' AS strike,v.content#>>\'{terms,strike,denomination}\' AS denomination FROM proposal_versions v WHERE v.guild_id=$1 AND v.round_id=$2 ORDER BY v.proposal_id,v.version DESC LIMIT 50',[guildId,roundId])).rows;
+ const ballot=(await tx.query<{id:string}>('SELECT id FROM ballots WHERE round_id=$1 ORDER BY created_at DESC,id DESC LIMIT 1',[roundId])).rows[0];const delivery=ballot?(await tx.query("SELECT state FROM ballot_deliveries WHERE ballot_id=$1 AND kind='ballot' ORDER BY created_at DESC,operation_id DESC LIMIT 1",[ballot.id])).rows[0]:null;
+ return {canCoordinate:['captain','administrator'].includes(scope.membership.role),canPrepare:round.state==='research'&&Date.now()<Date.parse(round.schedule.candidateLock),versions,ballotId:ballot?.id??null,deliveryState:delivery?.state??null};
+});}

@@ -5,23 +5,11 @@ import {testPool} from './helpers/database';
 import {syntheticProposal} from './helpers/proposals';
 import {syntheticGuild} from './helpers/fixtures';
 import {snapshotProposal} from '../../src/server/services/proposals';
-import {opaqueToken} from '../../src/server/auth/crypto';
+import {syntheticBallot} from './helpers/ballots';
 import {castVote,castVoteInTx,closeBallot,ballotView,cancelBallot} from '../../src/server/services/ballots';
 let db:Pool;beforeAll(()=>{db=testPool();});afterAll(async()=>{await db.end();});
-async function ballot(milliseconds=60000,missingHold=false){
- const f=await syntheticProposal(db),v=await snapshotProposal(db,f.userId,f.proposal.id,1,f.proposal.reviewHash),at=(await db.query<{t:Date}>('SELECT clock_timestamp() t')).rows[0].t,close=new Date(at.getTime()+milliseconds),open=new Date(close.getTime()-43200000),id=randomUUID(),call=randomUUID(),hold=randomUUID(),callToken=opaqueToken(),holdToken=opaqueToken();
- await db.query("UPDATE rounds SET state='voting' WHERE id=$1",[f.roundId]);await db.query('INSERT INTO round_roster(round_id,user_id) VALUES($1,$2)',[f.roundId,f.userId]);
- await db.query("INSERT INTO ballots(id,guild_id,round_id,state,kind,opens_at,closes_at,rules) VALUES($1,$2,$3,'prepared','opening',$4,$5,'{}')",[id,f.guildId,f.roundId,open,close]);
- await db.query('INSERT INTO ballot_roster(ballot_id,user_id) VALUES($1,$2)',[id,f.userId]);
- await db.query("INSERT INTO ballot_choices(id,ballot_id,guild_id,round_id,proposal_version_id,label) VALUES($1,$2,$3,$4,$5,'Call A')",[call,id,f.guildId,f.roundId,v.id]);
- if(!missingHold)await db.query("INSERT INTO ballot_choices(id,ballot_id,guild_id,round_id,label) VALUES($1,$2,$3,$4,'Keep holding SOL')",[hold,id,f.guildId,f.roundId]);
- await db.query('INSERT INTO callback_tokens(token,ballot_id,choice_id,chat_id,proposal_version_id) VALUES($1,$2,$3,$4,$5)',[callToken,id,call,f.chatId,v.id]);
- if(!missingHold)await db.query('INSERT INTO callback_tokens(token,ballot_id,choice_id,chat_id) VALUES($1,$2,$3,$4)',[holdToken,id,hold,f.chatId]);
- await db.query("UPDATE ballots SET rules=$2::jsonb,state='voting' WHERE id=$1",[id,JSON.stringify({botId:'9001',candidateVersions:[{id:v.id,hash:v.contentHash}],holdChoiceId:hold})]);
- // Restored synthetic prior-state fixture, not a claim of native or provider evidence.
- await db.query("INSERT INTO house_decisions(ballot_id,policy_version,cutoff_at,precommitted_at,input_hash,input,decision) VALUES($1,'highest-strike-v1',$2,$2,'synthetic','{\"syntheticPriorState\":true}','{\"kind\":\"hold\",\"reason\":\"Synthetic prior state\",\"policyVersion\":\"highest-strike-v1\"}')",[id,new Date(open.getTime()-1000)]);
- return {...f,id,call,hold,callToken,holdToken,close,actor:{telegramId:f.telegramId,chatId:f.chatId,chatType:'supergroup',messageId:'500'}};
-}
+const ballot=(milliseconds=60000,missingHold=false)=>syntheticBallot(db,milliseconds,missingHold);
+
 it('serializes concurrent changes, hides choice totals and preserves departed votes while blocking new changes',async()=>{
  const f=await ballot(),outsider=await syntheticGuild(db);
  await expect(castVote(db,f.callToken,{...f.actor,telegramId:outsider.telegramId},'9001')).rejects.toMatchObject({code:'ineligible'});

@@ -1,0 +1,8 @@
+// @vitest-environment jsdom
+import {afterEach,expect,it} from 'vitest';
+import {cleanup,render,screen} from '@testing-library/react';
+import {BallotReceipt} from './ballot-receipt';
+afterEach(cleanup);
+const view={id:'ballot-a',guildId:'guild-a',roundId:'round-a',guildName:'Orion',roundNumber:1,mode:'simulation',stage:'voting',eligible:true,windowClosed:false,checkedAt:'2026-11-08T10:00:00Z',state:'voting',opensAt:'2026-11-08T00:00:00Z',closesAt:'2026-11-08T12:00:00Z',participation:2,eligibleCount:3,quorum:2,ownReceipt:{choiceId:'choice-a',label:'Call A',revision:2,savedAt:'2026-11-08T09:59:00Z',proposalVersionId:'version-a',proposalId:'proposal-a'},counts:null,outcome:null,cancelReason:null,supersededBy:null};
+it('shows an owner receipt with exact version/time and no website voting controls',()=>{render(<BallotReceipt view={view}/>);expect(screen.getByRole('heading',{name:'Saved: Call A'})).toBeTruthy();expect(screen.getByRole('link',{name:'Review my exact proposal version'}).getAttribute('href')).toContain('version=version-a');expect(screen.getByText(/revision 2/)).toBeTruthy();expect(screen.queryByRole('button',{name:/vote/i})).toBeNull();expect(screen.getByText(/A vote is not a trade/)).toBeTruthy();});
+it('distinguishes an expired window from an unconfirmed canonical close and a replacement',()=>{render(<BallotReceipt view={{...view,windowClosed:true,state:'superseded',supersededBy:'new-ballot'}}/>);expect(screen.getByRole('link',{name:'Open the replacement ballot'}).getAttribute('href')).toBe('/ballots/new-ballot/receipt');expect(screen.getByText(/Votes do not transfer/)).toBeTruthy();});
