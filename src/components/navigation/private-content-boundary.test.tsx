@@ -1,7 +1,17 @@
 // @vitest-environment jsdom
-import {afterEach,expect,it,vi} from 'vitest';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {render,screen,waitFor,act,cleanup} from '@testing-library/react';
 import {PrivateContentBoundary} from './private-content-boundary';
-afterEach(()=>{cleanup();vi.unstubAllGlobals();});
+beforeEach(()=>{vi.spyOn(document,'visibilityState','get').mockReturnValue('visible');});
+afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();});
 it('withholds static server content until a fresh owner/scope check, and removes it on an offline identity change',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({userId:'owner-a'})}));render(<PrivateContentBoundary expectedUserId="owner-a" guildId="guild-a"><p>Retained private record</p></PrivateContentBoundary>);expect(screen.queryByText('Retained private record')).toBeNull();await screen.findByText('Retained private record');act(()=>window.dispatchEvent(new Event('gw:identity-changed')));expect(screen.queryByText('Retained private record')).toBeNull();expect(screen.getByText(/Private content hidden/)).toBeTruthy();});
 it('cannot resurrect old static props from a late identity response after invalidation or show them to a different identity',async()=>{let reply!:(value:unknown)=>void;vi.stubGlobal('fetch',vi.fn(()=>new Promise(resolve=>{reply=resolve;})));render(<PrivateContentBoundary expectedUserId="owner-a"><p>Retained private record</p></PrivateContentBoundary>);act(()=>window.dispatchEvent(new Event('gw:identity-changed')));await act(async()=>{reply({ok:true,json:async()=>({userId:'owner-a'})});});await waitFor(()=>expect(screen.queryByText('Retained private record')).toBeNull());});
+it.each(['focus','online'])('rechecks remote revocation on %s without a local identity event',async event=>{
+ const fetcher=vi.fn().mockResolvedValueOnce({ok:true,json:async()=>({userId:'owner-a'})}).mockResolvedValue({ok:false});vi.stubGlobal('fetch',fetcher);render(<PrivateContentBoundary expectedUserId="owner-a" guildId="guild-a"><p>Static private overview</p></PrivateContentBoundary>);await screen.findByText('Static private overview');await act(async()=>window.dispatchEvent(new Event(event)));await waitFor(()=>expect(screen.queryByText('Static private overview')).toBeNull());expect(fetcher).toHaveBeenCalledTimes(2);
+});
+it('retains entered work during a successful foreground identity recheck',async()=>{
+ let finish!:(v:unknown)=>void;const fetcher=vi.fn().mockResolvedValueOnce({ok:true,json:async()=>({userId:'owner-a'})}).mockImplementation(()=>new Promise(r=>{finish=r;}));vi.stubGlobal('fetch',fetcher);render(<PrivateContentBoundary expectedUserId="owner-a"><input aria-label="Unsaved evidence" defaultValue="Retained original work"/></PrivateContentBoundary>);await screen.findByLabelText('Unsaved evidence');await act(async()=>window.dispatchEvent(new Event('focus')));expect(fetcher).toHaveBeenCalledTimes(2);await act(async()=>finish({ok:true,json:async()=>({userId:'owner-a'})}));expect((screen.getByLabelText('Unsaved evidence') as HTMLInputElement).value).toBe('Retained original work');
+});
+it('bounds visible-session revalidation to sixty seconds',async()=>{
+ vi.useFakeTimers();try{const fetcher=vi.fn().mockResolvedValueOnce({ok:true,json:async()=>({userId:'owner-a'})}).mockResolvedValue({ok:false});vi.stubGlobal('fetch',fetcher);await act(async()=>{render(<PrivateContentBoundary expectedUserId="owner-a"><p>Expiring static record</p></PrivateContentBoundary>);});expect(screen.getByText('Expiring static record')).toBeTruthy();await act(async()=>{await vi.advanceTimersByTimeAsync(60000);});expect(fetcher).toHaveBeenCalledTimes(2);expect(screen.queryByText('Expiring static record')).toBeNull();}finally{vi.useRealTimers();}
+});

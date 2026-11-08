@@ -1,11 +1,13 @@
 {
   "evidence": "Fresh generated local database; all application migrations and idempotent replay; existing disposable cluster roles only",
-  "database": "guild_wars_migrations_0aa9d0074f3b4c6c",
+  "database": "guild_wars_migrations_806ecae838444d51",
   "migrations": 36,
   "checks": {
     "history_write": false,
     "health_write": false,
-    "membership_write": true
+    "membership_write": true,
+    "worker_history_write": false,
+    "worker_coverage_write": false
   },
-  "limitations": "Worker setup/ownership is separately tested by integration and restore. Managed cluster/production role installation remains unverified."
+  "limitations": "Actual worker setup/repeated setup and application replay included. Managed cluster/production role installation remains unverified."
 }

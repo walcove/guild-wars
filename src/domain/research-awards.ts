@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { invariant } from "./errors";
 import { decimal, compare } from "./money";
-import { parseUtc } from "./types";
+import { parseUtc, decimalSchema } from "./types";
 const source = z
   .url()
   .refine(
@@ -17,10 +17,7 @@ export const forecastSchema = z
     claim: z.string().min(10).max(1000),
     metric: z.string().min(3).max(100),
     operator: z.enum(["above", "below", "at_least", "at_most"]),
-    target: z
-      .string()
-      .regex(/^(0|[1-9]\d*)(\.\d+)?$/)
-      .max(60),
+    target: decimalSchema.max(60),
     benchmark: z.string().min(3).max(200),
     sourceUrl: source,
     deadline: z.string(),

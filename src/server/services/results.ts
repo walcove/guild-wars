@@ -10,6 +10,9 @@ import type {LedgerEvent} from '../../domain/ledger';
 import {fraction,type Fraction} from '../../domain/money';
 import {assertPermittedDerivedSources} from '../providers/derived-source-permissions';
 import {executionGate} from '../providers/live-readiness';
+import {advanceRoundInTx,changeRoundInTx,type RoundRecord} from './rounds';
+import {projectLedger} from '../../domain/ledger';
+import {readCohortQualityInTx} from './cohort-quality';
 export interface ResultValuation {basis:BenchmarkInput;dataClass:'teaching_only'|'permitted_reference';dataRightsReference:string|null;settlementRecordReference:string|null}
 const hash=(v:unknown)=>createHash('sha256').update(canonicalJson(v)).digest('hex');
 const json=(v:unknown)=>JSON.parse(JSON.stringify(v,(_,x)=>typeof x==='bigint'?x.toString():x));
@@ -21,7 +24,7 @@ export async function recordResultValuation(db:Pool,sleeveId:string,revision:str
  invariant(sleeve.mode==='simulation'||(executionGate.gate0Passed&&!b.source.synthetic&&!b.entrySource.synthetic&&record.dataClass==='permitted_reference'&&!!record.dataRightsReference),'live_unavailable','Live result inputs require approved source permissions');invariant(record.dataClass!=='teaching_only'||sleeve.mode==='simulation'&&b.source.synthetic&&b.entrySource.synthetic,'data_class','Synthetic inputs must remain teaching-only');
  const prior=(await tx.query('SELECT record FROM valuation_events WHERE sleeve_id=$1 AND revision=$2 AND observed_at=$3',[sleeveId,revision,b.exitAt])).rows[0];if(prior){invariant(hash(prior.record)===hash({...record,kind:'round_result'}),'valuation_changed','A correction requires a new source revision');return;}
  await tx.query('INSERT INTO valuation_events(sleeve_id,revision,observed_at,record) VALUES($1,$2,$3,$4::jsonb)',[sleeveId,revision,b.exitAt,JSON.stringify({...record,kind:'round_result'})]);
-});}
+});const sleeve=(await db.query('SELECT mode,round_id FROM sleeves WHERE id=$1',[sleeveId])).rows[0];if(sleeve?.mode==='simulation')await tryCompleteSimulationRound(db,sleeve.round_id);}
 async function personalInTx(tx:Tx,userId:string,sleeveId:string){
  const s=(await tx.query('SELECT s.*,se.rules_version,se.rules,r.number FROM sleeves s JOIN seasons se ON se.id=s.season_id JOIN rounds r ON r.id=s.round_id WHERE s.id=$1 AND s.user_id=$2 FOR SHARE OF s',[sleeveId,userId])).rows[0];invariant(s,'forbidden','This result belongs to another account or is unavailable');
  const v=(await tx.query<{id:string;revision:string;record:ResultValuation}>('SELECT id,revision,record FROM valuation_events WHERE sleeve_id=$1 AND record->>\'kind\'=\'round_result\' ORDER BY created_at DESC,id DESC LIMIT 1',[sleeveId])).rows[0],base={sleeveId,roundNumber:s.number,mode:s.mode,view:'personal_account' as const};
@@ -44,9 +47,29 @@ async function cohortInTx(tx:Tx,round:{id:string;season_id:string}){
  const rows=(await tx.query('SELECT c.id,c.user_id,c.consents,reg.id AS registration_id,s.id AS sleeve_id,a.revoked_at,a.read_authorization_ref FROM cohort_members c LEFT JOIN live_sleeve_registrations reg ON reg.cohort_member_id=c.id AND reg.round_id=$2 LEFT JOIN sleeves s ON s.cohort_member_id=c.id AND s.round_id=$2 LEFT JOIN provider_accounts a ON a.id=reg.account_id WHERE c.season_id=$1 ORDER BY c.id LIMIT 101',[round.season_id,round.id])).rows;
  const unavailable=(reason:string)=>({status:'provisional',registeredCount:rows.length,reason,capital:null,memberRange:null,excessReturn:null});
  if(rows.length>100)return unavailable('Cohort exceeds the verified pilot bound; all original members must remain included.');
+ const quality=await readCohortQualityInTx(tx,round.season_id,round.id);if(!quality.eligible)return unavailable(quality.reasons.join('; ')+'. Every original member remains included.');
  if(!executionGate.gate0Passed)return unavailable('Provider verification is unavailable. The original registered cohort is retained, including declined, missing and losing records.');
  if(rows.some(r=>!r.registration_id||!r.sleeve_id||r.consents.aggregateResults!==true||r.consents.readAccess!==true||r.consents.dataClass!=='provider_read'||r.revoked_at||!r.read_authorization_ref))return unavailable('Original registered cohort incomplete or aggregate/read consent unavailable. No subset result is published.');
  const results:CohortResult[]=[];for(const r of rows){const p=await personalInTx(tx,r.user_id,r.sleeve_id),v=p.result;if(!v.initialEquityUsd)return unavailable('An original member is missing verified initial equity; no subset result is published.');results.push({id:r.id,initial:rational(v.initialEquityUsd),net:v.totalNetUsd?rational(v.totalNetUsd):null,holding:v.holdingNetUsd?rational(v.holdingNetUsd):null,verified:v.status==='priced'&&p.dataClass==='permitted_reference'});}
  const a=aggregateCohort(rows.map(r=>r.id),results);return json({status:a.status,registeredCount:a.size,reason:a.status==='eligible'?'Capital-weighted complete registered cohort; personal accounts remain independent.':'At least three verified members and every original result are required.',capital:a.status==='eligible'?a.capital:null,memberRange:a.memberRange,excessReturn:a.excessReturn});
 }
 export async function readResultSnapshot(db:Pool,userId:string,roundId:string,snapshotId:string){const p=(await db.query('SELECT rs.id,rs.record,rs.created_at,s.mode,s.round_id FROM result_snapshots rs JOIN sleeves s ON s.id=rs.sleeve_id WHERE rs.id=$1 AND s.user_id=$2 AND s.round_id=$3',[snapshotId,userId,roundId])).rows[0];invariant(p,'forbidden','This immutable snapshot belongs to another account or is unavailable');return p;}
+
+// Internal, evidence-driven finalization. A timer or an expired contract cannot complete a round.
+export async function tryCompleteSimulationRound(db:Pool,roundId:string){return transaction(db,async tx=>{
+ const r=(await tx.query<RoundRecord>('SELECT * FROM rounds WHERE id=$1 FOR UPDATE',[roundId])).rows[0];invariant(r?.mode==='simulation','mode','Virtual completion cannot close a real obligation');
+ if(r.state==='complete')return {completed:true,reason:'Already finalized'};
+ const pending=(reason:string)=>({completed:false,reason});if(['cancelled','unranked'].includes(r.state))return pending('The original terminal round classification remains unchanged');
+ const booking=(await tx.query('SELECT state,record FROM simulation_bookings WHERE round_id=$1',[roundId])).rows[0],settlement=(await tx.query("SELECT state FROM operations WHERE id=$1 AND kind='virtual_settlement'",['virtual-settle:'+roundId])).rows[0];
+ if(booking?.state!=='booked'||settlement?.state!=='complete')return pending('Complete fixed-policy virtual booking and settlement are required');
+ const original=(await tx.query('SELECT user_id FROM simulation_enrollments WHERE season_id=$1 ORDER BY user_id',[r.season_id])).rows,rows=(await tx.query("SELECT id,user_id FROM sleeves WHERE round_id=$1 AND mode='simulation' ORDER BY user_id",[roundId])).rows;
+ if(original.length===0||original.length!==booking.record.enrolledCount||rows.length!==original.length||original.some(m=>rows.filter(s=>s.user_id===m.user_id).length!==1))return pending('Every originally enrolled virtual member must remain included');
+ if((await tx.query("SELECT p.id FROM positions p JOIN order_intents i ON i.id=p.intent_id JOIN sleeves s ON s.id=i.sleeve_id WHERE s.round_id=$1 AND p.state<>'settled' LIMIT 1",[roundId])).rowCount)return pending('A recorded virtual obligation remains unresolved');
+ for(const sleeve of rows){const valuation=(await tx.query("SELECT record FROM valuation_events WHERE sleeve_id=$1 AND record->>'kind'='round_result' ORDER BY created_at DESC,id DESC LIMIT 1",[sleeve.id])).rows[0]?.record as ResultValuation|undefined;
+  if(!valuation||valuation.basis.exitAt!==r.expires_at.toISOString()||!valuation.basis.settlementVerified||!valuation.basis.feesComplete||valuation.basis.liabilityUsd!=='0')return pending('Complete final valuation, costs and zero unresolved obligation are required for every original sleeve');
+  const ledger=(await tx.query<{record:LedgerEvent}>('SELECT record FROM ledger_events WHERE sleeve_id=$1 ORDER BY sequence',[sleeve.id])).rows.map(e=>e.record);if(projectLedger(ledger).liabilityUsdcMicros!==0n)return pending('A recorded virtual liability remains unresolved');
+  const result=await personalInTx(tx,sleeve.user_id,sleeve.id);if(result.result.status!=='priced')return pending('An original sleeve result remains provisional');
+ }
+ const advanced=await advanceRoundInTx(tx,roundId);if(advanced.state!=='settlement_pending')return pending('Published round state has not reached settlement verification');
+ const now=(await tx.query<{t:Date}>('SELECT clock_timestamp() t')).rows[0].t;await changeRoundInTx(tx,advanced,'complete','virtual-complete:'+roundId,'Every original virtual sleeve has complete fixed-policy settlement and final result evidence; never a real funds receipt',now);return {completed:true,reason:'Original virtual cohort finalized'};
+});}

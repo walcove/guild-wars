@@ -1,3 +1,4 @@
+import {z} from 'zod';
 import type {Pool} from 'pg';
 import {transaction} from '../db/client';
 import {invariant} from '../../domain/errors';
@@ -6,6 +7,7 @@ import {projectLedger,type LedgerEvent} from '../../domain/ledger';
 import {providerReadGate} from '../providers/read-access';
 interface PositionCursor {createdAt:string;id:string}
 export async function listOwnedPositions(db:Pool,userId:string,cursor:PositionCursor|null=null){
+ if(cursor){z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/).refine(v=>Number.isFinite(Date.parse(v))&&new Date(v).toISOString()===v.slice(0,23)+'Z').parse(cursor.createdAt);z.uuid().parse(cursor.id);}
  const rows=(await db.query<{id:string;mode:string;state:string;provider_id:string;createdAt:string}>(`SELECT p.id,p.mode,p.state,p.provider_id,to_char(p.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "createdAt" FROM positions p WHERE p.user_id=$1 AND ($2::timestamptz IS NULL OR (p.created_at,p.id)<($2::timestamptz,$3::uuid)) ORDER BY p.created_at DESC,p.id DESC LIMIT 51`,[userId,cursor?.createdAt??null,cursor?.id??null])).rows;const more=rows.length>50,positions=rows.slice(0,50),last=positions.at(-1);return {positions,nextCursor:more&&last?{createdAt:last.createdAt,id:last.id}:null};
 }
 export async function positionView(db:Pool,userId:string,id:string){return transaction(db,async tx=>{

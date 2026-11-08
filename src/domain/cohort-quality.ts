@@ -1,0 +1,7 @@
+export interface CohortQualityMember {id:string;registered:boolean;startingHoldingsVerified:boolean;currentReadConsent:boolean;aggregateConsent:boolean;sourcePermitted:boolean;deviation:boolean;unmatchedOrders:number;unresolvedIssues:number;fillTiming:readonly string[]}
+export function cohortQuality(original:readonly string[],members:readonly CohortQualityMember[]){
+ const reasons:string[]=[];if(original.length<3)reasons.push('At least three original verified members required');
+ if(new Set(original).size!==original.length||members.length!==original.length||new Set(members.map(m=>m.id)).size!==members.length||original.some(id=>!members.some(m=>m.id===id)))reasons.push('Original registered cohort incomplete');
+ for(const m of members){if(!m.registered||!m.startingHoldingsVerified)reasons.push('An original member lacks verified round-start allocation');if(!m.currentReadConsent||!m.aggregateConsent)reasons.push('Original read or aggregate consent unavailable');if(!m.sourcePermitted)reasons.push('Original provider verification unavailable');if(m.deviation||m.unmatchedOrders>0)reasons.push('An original member has a personal deviation from the matched guild plan');if(m.unresolvedIssues>0)reasons.push('An original member has unresolved reconciliation discrepancies');if(m.fillTiming.some(t=>t!=='in_window'))reasons.push('An original member has late, early or unverifiable fill timing');}
+ return {eligible:reasons.length===0,reasons:[...new Set(reasons)],memberIds:[...original]};
+}

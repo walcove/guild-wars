@@ -45,8 +45,8 @@ export async function castVoteInTx(tx:Tx,token:string,actor:CallbackActor,botId:
  invariant(/^[A-Za-z0-9_-]{43}$/.test(token),'invalid_button','This ballot button is invalid');
  const button=(await tx.query<{ballot_id:string;choice_id:string;chat_id:string;proposal_version_id:string|null}>('SELECT token,ballot_id,choice_id,chat_id,proposal_version_id FROM callback_tokens WHERE token=$1',[token])).rows[0];invariant(button,'invalid_button','This ballot button is unavailable');
  invariant(['group','supergroup'].includes(actor.chatType)&&actor.chatId===button.chat_id,'callback_context','Open the ballot in its original guild group');
- const locked=await lockBallot(tx,button.ballot_id),{ballot,binding}=locked,time=await ballotClock(tx,ballot.id,clock);let round=locked.round;
- if(ballot.state==='prepared'){invariant(time.timely,'ballot_not_open',time.hasClosed?'This ballot window has closed':'Voting has not opened yet');round=await activateInTx(tx,ballot,round,time.instant);}
+ const locked=await lockBallot(tx,button.ballot_id),{ballot,binding}=locked;let time=await ballotClock(tx,ballot.id,clock),round=locked.round;
+ if(ballot.state==='prepared'){invariant(time.timely,'ballot_not_open',time.hasClosed?'This ballot window has closed':'Voting has not opened yet');round=await activateInTx(tx,ballot,round,clock);}
  invariant(ballot.state==='voting'&&!time.hasClosed,'ballot_closed',ballot.superseded_by?'This ballot was superseded; open the replacement record':'This ballot is closed; check the canonical result');
  invariant(time.timely,'ballot_not_open','Voting has not opened yet');
  invariant((await tx.query('SELECT h.ballot_id FROM house_decisions h JOIN ballots b ON b.id=h.ballot_id WHERE h.ballot_id=$1 AND h.precommitted_at<b.opens_at',[ballot.id])).rowCount===1,'house_unavailable','The original paper House snapshot is missing; no retrospective choice is permitted');
@@ -54,6 +54,7 @@ export async function castVoteInTx(tx:Tx,token:string,actor:CallbackActor,botId:
  const roster=(await tx.query<{id:string}>('SELECT u.id FROM ballot_roster r JOIN users u ON u.id=r.user_id JOIN memberships m ON m.user_id=u.id AND m.guild_id=$3 WHERE r.ballot_id=$1 AND u.telegram_id=$2 AND m.status=\'active\' FOR SHARE OF m',[ballot.id,actor.telegramId,ballot.guild_id])).rows[0];invariant(roster,'ineligible','Only active linked members in this ballot’s frozen roster may vote; research remains open to active members');
  const rows=await choices(tx,ballot.id),choice=rows.find(c=>c.id===button.choice_id);invariant(validChoices(ballot,rows)&&choice&&choice.proposal_version_id===button.proposal_version_id,'invalid_ballot','This ballot’s locked versions cannot be verified; Keep holding is the safe fallback');
  const previous=(await tx.query<{choice_id:string;revision:number;saved_at:Date}>('SELECT choice_id,revision,saved_at FROM votes WHERE ballot_id=$1 AND user_id=$2',[ballot.id,roster.id])).rows[0];
+ time=await ballotClock(tx,ballot.id,clock);invariant(time.timely,'ballot_closed','This ballot has closed; the previous saved choice is unchanged');
  if(previous?.choice_id===choice.id)return {status:'saved',message:`Already saved: ${choice.label}. Check your private receipt.`,ballotId:ballot.id,choiceId:choice.id,revision:previous.revision,savedAt:previous.saved_at.toISOString(),proposalVersionId:choice.proposal_version_id,mode:round.mode};
  const revision=(previous?.revision??0)+1;await tx.query('INSERT INTO votes(ballot_id,user_id,choice_id,revision,saved_at) VALUES($1,$2,$3,$4,$5) ON CONFLICT(ballot_id,user_id) DO UPDATE SET choice_id=EXCLUDED.choice_id,revision=EXCLUDED.revision,saved_at=EXCLUDED.saved_at',[ballot.id,roster.id,choice.id,revision,time.savedAt]);
  await tx.query('INSERT INTO vote_events(ballot_id,user_id,choice_id,revision,saved_at) VALUES($1,$2,$3,$4,$5)',[ballot.id,roster.id,choice.id,revision,time.savedAt]);
@@ -87,14 +88,15 @@ export async function cancelBallot(db:Pool,userId:string,id:string,reason:string
  invariant(['captain','administrator'].includes(scope.membership.role),'forbidden','A captain or administrator coordinates ballot cancellation');const {ballot,round}=await lockBallot(tx,id),time=await ballotClock(tx,id);invariant(['prepared','voting'].includes(ballot.state)&&!time.hasClosed,'ballot_closed','A closed ballot cannot be rewritten');await tx.query("UPDATE ballots SET state='cancelled',cancel_reason=$2 WHERE id=$1",[id,reason]);await audit(tx,{actorId:userId,guildId:ballot.guild_id,kind:'ballot_cancelled',recordId:id,reason});await queueBallotNotificationInTx(tx,id);if(round.state==='voting')await changeRoundInTx(tx,round,'unranked',`ballot-cancel:${id}`,'Ballot cancelled: '+reason,time.instant);
  });}
 
-async function activateInTx(tx:Tx,ballot:BallotRecord,round:RoundRecord,now:Date):Promise<RoundRecord>{
+async function activateInTx(tx:Tx,ballot:BallotRecord,round:RoundRecord,clock?:Clock):Promise<RoundRecord>{
  invariant((await tx.query('SELECT h.ballot_id FROM house_decisions h JOIN ballots b ON b.id=h.ballot_id WHERE h.ballot_id=$1 AND h.precommitted_at<b.opens_at',[ballot.id])).rowCount===1,'house_unavailable','A verified earlier paper House precommit is required; no retrospective choice is allowed');
- const advanced=await advanceRoundInTx(tx,round.id,{now:()=>now});invariant(advanced.state===(ballot.kind==='midweek'?'midweek':'voting'),'round_unavailable','The round cannot open this ballot');
+ const advanced=await advanceRoundInTx(tx,round.id,clock);invariant(advanced.state===(ballot.kind==='midweek'?'midweek':'voting'),'round_unavailable','The round cannot open this ballot');
  if(ballot.kind==='midweek'){
   const roster=await membersAtOpening(tx,round.guild_id,ballot.opens_at);
   invariant(roster!==null,'roster_unavailable','This opening predates recorded membership coverage; no retrospective denominator');
   await tx.query('INSERT INTO ballot_roster(ballot_id,user_id) SELECT $1,unnest($2::uuid[]) ON CONFLICT DO NOTHING',[ballot.id,roster]);
  }else await tx.query('INSERT INTO ballot_roster(ballot_id,user_id) SELECT $1,user_id FROM round_roster WHERE round_id=$2 ON CONFLICT DO NOTHING',[ballot.id,round.id]);
+ const accepted=await ballotClock(tx,ballot.id,clock);invariant(accepted.timely,'ballot_closed','The ballot closed while its opening eligibility was being verified');
  await tx.query("UPDATE ballots SET state='voting' WHERE id=$1 AND state='prepared'",[ballot.id]);ballot.state='voting';return advanced;
 }
 export async function prepareBallot(db:Pool,userId:string,guildId:string,roundId:string,versionIds:string[],requestId:string):Promise<BallotRecord>{
@@ -121,7 +123,7 @@ export async function prepareBallot(db:Pool,userId:string,guildId:string,roundId
   await queueBallotNotificationInTx(tx,ballot.id);await audit(tx,{actorId:userId,guildId,kind:'ballot_prepared',recordId:ballot.id,reason:'Exact candidate versions and original twelve-hour timetable locked; roster freezes at opening'});return {...ballot,rules};
  });
 }
-export async function activatePreparedBallot(db:Pool,id:string):Promise<void>{await transaction(db,async tx=>{const {ballot,round,binding}=await lockBallot(tx,id),time=await ballotClock(tx,id);if(ballot.state!=='prepared'||!time.timely||!binding?.active||binding.bot_id!==ballot.rules.botId)return;await activateInTx(tx,ballot,round,time.instant);await queueBallotNotificationInTx(tx,id);});}
+export async function activatePreparedBallot(db:Pool,id:string):Promise<void>{await transaction(db,async tx=>{const {ballot,round,binding}=await lockBallot(tx,id),time=await ballotClock(tx,id);if(ballot.state!=='prepared'||!time.timely||!binding?.active||binding.bot_id!==ballot.rules.botId)return;await activateInTx(tx,ballot,round);await queueBallotNotificationInTx(tx,id);});}
 export async function supersedeBallot(db:Pool,userId:string,id:string,reason:string):Promise<BallotRecord>{
  invariant(reason.trim().length>=5&&reason.length<=1000,'reason_required','A visible replacement reason is required');const first=(await db.query<BallotRecord>('SELECT * FROM ballots WHERE id=$1',[id])).rows[0];invariant(first,'ballot_unavailable','Ballot unavailable');
  return inGuild(db,userId,first.guild_id,async(tx,scope)=>{

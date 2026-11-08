@@ -41,13 +41,14 @@ export async function changeRoundInTx(tx:Tx,row:RoundRecord,to:RoundState,operat
 // Internal service capability; not exposed as an arbitrary state/clock HTTP mutation.
 export async function transitionRecorded(db:Pool,id:string,to:RoundState,operationId:string,reason:string,clock?:Clock):Promise<void>{await transaction(db,async tx=>{const row=(await tx.query<RoundRecord>('SELECT * FROM rounds WHERE id=$1 FOR UPDATE',[id])).rows[0];invariant(row,'round_unavailable','Round unavailable');await changeRoundInTx(tx,row,to,operationId,reason,await serverTime(tx,clock));});}
 export async function advanceRoundInTx(tx:Tx,id:string,clock?:Clock):Promise<RoundRecord> {
-  const row=(await tx.query<RoundRecord>('SELECT * FROM rounds WHERE id=$1 FOR UPDATE',[id])).rows[0];invariant(row,'round_unavailable','Round unavailable');const now=await serverTime(tx,clock),t=now.getTime(),s=row.schedule;
+  const row=(await tx.query<RoundRecord>('SELECT * FROM rounds WHERE id=$1 FOR UPDATE',[id])).rows[0];invariant(row,'round_unavailable','Round unavailable');let now=await serverTime(tx,clock);const t=now.getTime(),s=row.schedule;
   if(!s.researchOpen)return row; // Pre-service legacy/synthetic constraint fixtures are not a published timetable.
   const step=async(to:RoundState,reason:string)=>changeRoundInTx(tx,row,to,`round:${row.id}:${to}`,reason,now);
   if(row.state==='research'&&t>=Date.parse(s.candidateLock))await step('candidate_lock','Published candidate lock reached');
   if(row.state==='candidate_lock'&&t>=Date.parse(s.voteOpen)) {
    if(t>=Date.parse(s.voteClose)){await step('unranked','Opening snapshot missed; no retroactive roster or favorable entry');return row;}
    const roster=await membersAtOpening(tx,row.guild_id,s.voteOpen);
+   now=await serverTime(tx,clock);if(now.getTime()>=Date.parse(s.voteClose)){await step('unranked','Opening snapshot missed; no retroactive roster or favorable entry');return row;}
    if(roster===null){await step('unranked','Opening predates recorded membership coverage; no retrospective denominator');return row;}
    await tx.query('INSERT INTO round_roster(round_id,user_id) SELECT $1,unnest($2::uuid[]) ON CONFLICT DO NOTHING',[id,roster]);
    await step('voting','Opening roster frozen separately from live participation');

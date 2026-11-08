@@ -1,0 +1,13 @@
+import {beforeAll,afterAll,it,expect} from 'vitest';
+import type {Pool} from 'pg';
+import {testPool} from './helpers/database';
+import {priorSyntheticRound} from './helpers/simulation-round';
+import {bookSimulation,settleSimulationRound} from '../../src/server/jobs/book-simulation';
+import {recordResultValuation} from '../../src/server/services/results';
+let db:Pool;beforeAll(()=>{db=testPool();});afterAll(async()=>{await db.end();});
+const until=async(at:Date)=>{await db.query('SELECT pg_sleep(GREATEST(0,extract(epoch FROM($1::timestamptz-clock_timestamp()))))',[at]);};
+for(const hold of [false,true])it(`finalizes ${hold?'holding':'covered-call'} only after complete virtual settlement and final valuation, with one transition`,async()=>{
+ const f=await priorSyntheticRound(db,true,hold);await until(f.booking);await bookSimulation(db,f.roundId);await until(f.expiry);await db.query("UPDATE rounds SET state='settlement_pending' WHERE id=$1",[f.roundId]);const source={sourceId:'synthetic-terminal',observedAt:f.expiry.toISOString(),receivedAt:f.expiry.toISOString(),synthetic:true},terminal={price:'130',denomination:'USD' as const,source,usdPerUsdc:'1',fxSource:{...source,sourceId:'synthetic-fx'}};await settleSimulationRound(db,f.roundId,terminal);expect((await db.query('SELECT state FROM rounds WHERE id=$1',[f.roundId])).rows[0].state).toBe('settlement_pending');
+ const sleeve=(await db.query('SELECT id FROM sleeves WHERE round_id=$1',[f.roundId])).rows[0],valuation={dataClass:'teaching_only' as const,dataRightsReference:null,settlementRecordReference:'original-synthetic-virtual-settlement',basis:{initialAssetLamports:'10000000000',initialCashUsdcMicros:'0',reserveLamports:'10000000',entryAt:f.booking.toISOString(),exitAt:f.expiry.toISOString(),expiry:f.expiry.toISOString(),entryUsdPerSol:'100',terminalUsdPerSol:'130',entryUsdPerUsdc:'1',terminalUsdPerUsdc:'1',entrySource:{...source,sourceId:'original-synthetic-entry-model',observedAt:f.booking.toISOString(),receivedAt:f.booking.toISOString()},source,valuationPolicy:'original-synthetic-model',feePolicy:'frozen-model-fees',settlementVerified:true,liabilityUsd:'0',feesComplete:true}};
+ await recordResultValuation(db,sleeve.id,'completion-r1',valuation);expect((await db.query('SELECT state FROM rounds WHERE id=$1',[f.roundId])).rows[0].state).toBe('complete');await recordResultValuation(db,sleeve.id,'completion-r1',valuation);await settleSimulationRound(db,f.roundId,terminal);expect((await db.query("SELECT count(*)::int n FROM round_events WHERE round_id=$1 AND to_state='complete'",[f.roundId])).rows[0].n).toBe(1);
+});

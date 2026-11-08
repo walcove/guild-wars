@@ -4,7 +4,6 @@ import {reconcileKnownOrder} from '../../src/server/jobs/reconcile-orders';
 import {afterAll,beforeAll,expect,it} from 'vitest';
 import type {Pool} from 'pg';
 import {testPool} from './helpers/database';
-import {syntheticReviewedIntents} from './helpers/orders';
 import {readLedger} from '../../src/server/services/ledger';
 import {importProviderEvents} from '../../src/server/services/import-provider-events';
 import type {VerifiedExecutionEvent} from '../../src/server/providers/contracts';

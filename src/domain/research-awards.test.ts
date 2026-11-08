@@ -90,3 +90,7 @@ it("rotates two members only for the particular award and enforces the exact 48-
     appealOpen("2026-11-08T12:00:00.000Z", "2026-11-10T12:00:00.000Z")
   ).toBe(false);
 });
+it('rejects an immutable forecast target outside the resolver decimal precision',()=>{
+ expect(()=>forecastTerms({...terms,target:'1.0000000000000000001'},'2026-11-08T12:00:00.000Z')).toThrow();
+ expect(()=>forecastTerms({...terms,target:'1.000000000000000001'},'2026-11-08T12:00:00.000Z')).not.toThrow();
+});
