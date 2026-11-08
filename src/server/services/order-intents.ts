@@ -1,0 +1,31 @@
+import {createHash} from 'node:crypto';
+import type {Pool} from 'pg';
+import {canonicalJson} from '../../domain/proposals';
+import {invariant} from '../../domain/errors';
+import {parseSource,unitsSchema,assertSameMode,type SourceStamp,type TradingMode} from '../../domain/types';
+import {availableAfterCommitments,type Commitment,type ReflectedCommitment} from '../../domain/order-policy';
+import {inGuild} from '../db/repositories';
+import {providerReadGate} from '../providers/read-access';
+export interface AvailableAssetSnapshot {accountId:string;userId:string;providerId:string;mode:TradingMode;unencumberedLamports:string;reflectedCommitments:ReflectedCommitment[];source:SourceStamp}
+export async function readOwnIntent(db:Pool,userId:string,id:string){const row=(await db.query('SELECT id,guild_id,sleeve_id,user_id,account_id,mode,state,idempotency_key,review,review_hash,review_revision,external_order_id FROM order_intents WHERE id=$1 AND user_id=$2',[id,userId])).rows[0];invariant(row,'forbidden','This order intent belongs to another account or is unavailable');return row;}
+// Internal allocation record only. Snapshot comes from the server's provider reader, never HTTP.
+// Creating this reservation is neither custody nor a provider/member trading authorization.
+export async function reserveReviewedIntent(db:Pool,userId:string,id:string,expectedReviewHash:string,snapshot:AvailableAssetSnapshot){
+ const first=await readOwnIntent(db,userId,id);return inGuild(db,userId,first.guild_id,async tx=>{
+  const account=(await tx.query('SELECT * FROM provider_accounts WHERE id=$1 AND user_id=$2 FOR UPDATE',[first.account_id,userId])).rows[0];invariant(account&&!account.revoked_at&&account.read_authorization_ref,'read_access_changed','Verify current provider ownership and read authorization before allocating SOL');
+  const sleeve=(await tx.query('SELECT s.*,r.schedule,r.mode AS round_mode FROM sleeves s JOIN rounds r ON r.id=s.round_id WHERE s.id=$1 AND s.user_id=$2 FOR SHARE OF s',[first.sleeve_id,userId])).rows[0];const intent=(await tx.query('SELECT * FROM order_intents WHERE id=$1 AND user_id=$2 FOR UPDATE',[id,userId])).rows[0];
+  const review=intent.review,actualHash=review?createHash('sha256').update(canonicalJson(review)).digest('hex'):null;invariant(review&&actualHash===intent.review_hash&&actualHash===expectedReviewHash,'review_changed','The amount, quote or terms changed. Review the current bound order again');
+  invariant(review.userId===userId&&review.accountId===account.id&&review.providerId===account.provider_id&&review.roundId===sleeve.round_id&&review.mode===intent.mode&&sleeve.account_id===account.id,'review_scope','Review must bind the exact owner, account, provider, round and amount');assertSameMode(sleeve.mode,intent.mode);assertSameMode(sleeve.round_mode,intent.mode);assertSameMode(intent.mode,snapshot.mode);
+  if(intent.mode==='live')invariant(process.env.GW_LIVE_PREPARATION_ENABLED==='true'&&providerReadGate.gate0Passed&&providerReadGate.approvedProviderId===account.provider_id&&account.verified_at&&sleeve.verification?.dataClass==='verified_provider','live_unavailable','Live preparation is disabled until approved provider, release and registered starting-holdings gates pass');
+  const prior=(await tx.query('SELECT * FROM reservations WHERE intent_id=$1',[id])).rows[0];if(prior)return prior;
+  invariant(intent.state==='awaiting_authorization','review_required','The member must explicitly review this intent before its allocation can be prepared');const now=(await tx.query<{t:Date}>('SELECT clock_timestamp() t')).rows[0].t;
+  invariant(review.quoteExpiresAt&&now.getTime()<Date.parse(review.quoteExpiresAt),'quote_expired','The reviewed quote expired. Request and review a fresh quote');
+  if(intent.mode==='live')invariant(sleeve.schedule.voteClose&&sleeve.schedule.executionClose&&now.getTime()>=Date.parse(sleeve.schedule.voteClose)&&now.getTime()<Date.parse(sleeve.schedule.executionClose),'execution_closed','New opening preparation is outside the published execution window');
+  const source=parseSource(snapshot.source);invariant(snapshot.accountId===account.id&&snapshot.userId===userId&&snapshot.providerId===account.provider_id,'balance_scope','Available assets must belong to this exact provider account');invariant(source.receivedAt<=now.toISOString()&&now.getTime()-Date.parse(source.observedAt)<=60000,'balance_stale','Available-asset snapshot is stale or not yet received');invariant(intent.mode==='simulation'||!source.synthetic,'synthetic_live','Synthetic holdings cannot reserve real assets');
+  const quantity=BigInt(unitsSchema.parse(review.quantityLamports)),reserve=BigInt(unitsSchema.parse(review.feeReserveLamports));invariant(quantity>0n&&reserve>=BigInt(sleeve.reserve_lamports),'fee_reserve','Reserve the full declared uncovered SOL fee amount');
+  const active=(await tx.query<Commitment&{sleeveId:string}>('SELECT r.covered_lamports AS "coveredLamports",r.fee_reserve_lamports AS "feeReserveLamports",r.state,r.provider_ref AS "providerRef",i.sleeve_id AS "sleeveId" FROM reservations r JOIN order_intents i ON i.id=r.intent_id WHERE r.account_id=$1 AND r.mode=$2 AND r.state<>\'released\' ORDER BY r.id',[account.id,intent.mode])).rows;
+  const available=BigInt(availableAfterCommitments(snapshot.unencumberedLamports,active,snapshot.reflectedCommitments));invariant(quantity+reserve<=available,'insufficient_available','Another pending, filled, partial or Unknown commitment uses this allocation. Reconcile before preparing another order');
+  const localUsed=active.filter(r=>r.sleeveId===sleeve.id).reduce((n,r)=>n+BigInt(r.coveredLamports)+BigInt(r.feeReserveLamports),0n);invariant(localUsed+quantity+reserve<=BigInt(sleeve.allocation_lamports),'sleeve_overcommitted','These reviewed intents exceed the registered weekly sleeve');
+  return (await tx.query('INSERT INTO reservations(intent_id,account_id,mode,covered_lamports,fee_reserve_lamports,state) VALUES($1,$2,$3,$4,$5,\'reserved\') RETURNING *',[id,account.id,intent.mode,quantity.toString(),reserve.toString()])).rows[0];
+ });
+}

@@ -1,0 +1,12 @@
+# Individual order preparation kernel
+
+Implemented local Task 21 increment; this is not an approved provider integration or live-preparation capability.
+
+- Strict order transitions require individual review/authorization; a guild vote cannot skip to Submitted. Unknown cannot become a fresh quoted retry without reconciliation.
+- Server-built canonical reviews bind owner/account/provider, mode, exact round/proposal version, cluster/location, personal amount, quote/expiry, size, reserve, known fees, source observations, custody/settlement and policy limits. All fees use exact arithmetic; SOL fees need observed SOL/USD and USD/USDC conversion. Fee caps scale to the reference quantity. Below-limit/changed terms are marked as personal deviations. Private adapter properties are excluded by projection (regression RED→GREEN).
+- Internal reservations lock the provider account across all active intents/sleeves, then check the actual owner, review hash, scope, post-lock clock, fresh source and amount. They reserve covered SOL plus the declared fee reserve. A duplicate intent reuses its record. Existing partial/Unknown commitments are retained; quote or round expiry never releases them.
+- Provider-reflected amounts are explicit quantities, not boolean references: only the reflected part is subtracted from the local commitment. A partial reflected lock cannot free the full reservation. Both account and sleeve limits apply. A unique provider reference cannot belong to two local reservations. Release policy also requires no remaining filled obligation and definitive evidence.
+
+Evidence: four order-policy, three review and four PostgreSQL reservation cases pass, including true concurrent different-intent contention, owner/hash/staleness failures, idempotency and partial-reflection safety. Full verify passes 96 units, TS/lint and web/worker builds; contracts 16/16. All positive allocation fixtures use simulation mode and original synthetic account/balance/review records; no executable quote, provider fill, live sleeve or authorization is claimed.
+
+Remaining Task 21 work: short-lived preparation-token lifecycle and web recovery/review flow, then the approved adapter's member handoff and current eligibility checks. Source-dependent live/sandbox capability cannot be exercised until Task 20 evidence arrives. Production live preparation remains disabled even if a client claims it is enabled; the server-owned provider/read gate is Unavailable.

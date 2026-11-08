@@ -162,6 +162,13 @@
       "when": 1794121301187,
       "tag": "0022_purple_victor_mancha",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1794121573704,
+      "tag": "0023_tiresome_venus",
+      "breakpoints": true
     }
   ]
 }
