@@ -1,0 +1,2 @@
+ALTER TABLE "provider_observations" ADD CONSTRAINT "observation_intent" UNIQUE("id","intent_id");--> statement-breakpoint
+ALTER TABLE "reconciliation_issues" ADD CONSTRAINT "reconciliation_issues_observation_id_intent_id_provider_observations_id_intent_id_fk" FOREIGN KEY ("observation_id","intent_id") REFERENCES "public"."provider_observations"("id","intent_id") ON DELETE no action ON UPDATE no action;

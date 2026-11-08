@@ -22,7 +22,7 @@ try {
  REVOKE USAGE ON SCHEMA graphile_worker FROM guild_wars_app;
  CREATE OR REPLACE FUNCTION public.gw_enqueue_job(p_task text,p_payload json,p_queue text,p_run_at timestamptz,p_attempts smallint,p_key text,p_priority smallint) RETURNS bigint
  LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,graphile_worker AS $$ BEGIN
-  IF p_task NOT IN ('close_ballot','recover_due','capture_quote','midweek_notice','reconcile_settlement','resolve_research','deliver_telegram','telegram_command','refresh_market','deliver_ballot','book_simulation','capture_simulation','settle_simulation') OR p_queue NOT IN ('guild-critical','guild-background-0','guild-background-1','guild-background-2') OR p_attempts NOT BETWEEN 1 AND 5 OR octet_length(p_payload::text)>65536 OR length(p_key)>256 THEN RAISE EXCEPTION 'Invalid application job'; END IF;
+  IF p_task NOT IN ('close_ballot','recover_due','capture_quote','midweek_notice','reconcile_settlement','resolve_research','deliver_telegram','telegram_command','refresh_market','deliver_ballot','book_simulation','capture_simulation','settle_simulation','reconcile_orders') OR p_queue NOT IN ('guild-critical','guild-background-0','guild-background-1','guild-background-2') OR p_attempts NOT BETWEEN 1 AND 5 OR octet_length(p_payload::text)>65536 OR length(p_key)>256 THEN RAISE EXCEPTION 'Invalid application job'; END IF;
   RETURN (graphile_worker.add_job(identifier=>p_task,payload=>p_payload,queue_name=>p_queue,run_at=>p_run_at,max_attempts=>p_attempts,job_key=>p_key,priority=>p_priority,job_key_mode=>'replace')).id;
  END $$;
  ALTER FUNCTION public.gw_enqueue_job(text,json,text,timestamptz,smallint,text,smallint) OWNER TO guild_wars_worker;

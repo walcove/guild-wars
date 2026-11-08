@@ -2,7 +2,7 @@ import type {Tx} from '../db/client';
 import {invariant} from '../../domain/errors';
 import {parseUtc} from '../../domain/types';
 import {budgets,lane,queueName} from './budgets';
-export const tasks=['close_ballot','recover_due','capture_quote','midweek_notice','reconcile_settlement','resolve_research','deliver_telegram','telegram_command','refresh_market','deliver_ballot','book_simulation','capture_simulation','settle_simulation'] as const;
+export const tasks=['close_ballot','recover_due','capture_quote','midweek_notice','reconcile_settlement','resolve_research','deliver_telegram','telegram_command','refresh_market','deliver_ballot','book_simulation','capture_simulation','settle_simulation','reconcile_orders'] as const;
 export interface JobRequest {task:typeof tasks[number];operationId:string;payload:Record<string,unknown>;runAt?:string}
 // Domain write -> supported add_job SQL -> COMMIT. Job keys never prove an effect ran once.
 export async function enqueue(tx:Tx,request:JobRequest):Promise<string> {
