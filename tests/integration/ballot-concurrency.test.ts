@@ -18,6 +18,8 @@ async function ballot(milliseconds=60000,missingHold=false){
  await db.query('INSERT INTO callback_tokens(token,ballot_id,choice_id,chat_id,proposal_version_id) VALUES($1,$2,$3,$4,$5)',[callToken,id,call,f.chatId,v.id]);
  if(!missingHold)await db.query('INSERT INTO callback_tokens(token,ballot_id,choice_id,chat_id) VALUES($1,$2,$3,$4)',[holdToken,id,hold,f.chatId]);
  await db.query("UPDATE ballots SET rules=$2::jsonb,state='voting' WHERE id=$1",[id,JSON.stringify({botId:'9001',candidateVersions:[{id:v.id,hash:v.contentHash}],holdChoiceId:hold})]);
+ // Restored synthetic prior-state fixture, not a claim of native or provider evidence.
+ await db.query("INSERT INTO house_decisions(ballot_id,policy_version,cutoff_at,precommitted_at,input_hash,input,decision) VALUES($1,'highest-strike-v1',$2,$2,'synthetic','{\"syntheticPriorState\":true}','{\"kind\":\"hold\",\"reason\":\"Synthetic prior state\",\"policyVersion\":\"highest-strike-v1\"}')",[id,new Date(open.getTime()-1000)]);
  return {...f,id,call,hold,callToken,holdToken,close,actor:{telegramId:f.telegramId,chatId:f.chatId,chatType:'supergroup',messageId:'500'}};
 }
 it('serializes concurrent changes, hides choice totals and preserves departed votes while blocking new changes',async()=>{

@@ -11,10 +11,11 @@ import {transaction,type Tx} from '../db/client';
 import {inGuild} from '../db/repositories';
 import type {CallbackActor,CallbackReceipt} from '../telegram/callbacks';
 import {advanceRoundInTx,serverTime,changeRoundInTx,type RoundRecord} from './rounds';
+import {configuredHouseInput,lockHouseInTx,inheritHouseInTx} from './house';
 import {validateFrozenSeasonTerms} from './proposals';
 import type {PlanContext} from '../../domain/proposals';
 import {audit} from './audit';
-interface BallotRules {botId?:string;candidateVersions?:{id:string;hash:string}[];holdChoiceId?:string}
+interface BallotRules {botId?:string;candidateVersions?:{id:string;hash:string}[];holdChoiceId?:string;dataCutoff?:string}
 export interface BallotOutcome extends Omit<BallotDecision,'choiceId'> {choiceId:string|null;strategy:'call'|'hold';counts:{choiceId:string;votes:number}[];closedAt:string;detail?:string}
 export interface BallotRecord {id:string;guild_id:string;round_id:string;state:string;kind:string;opens_at:Date;closes_at:Date;rules:BallotRules;outcome:BallotOutcome|null;cancel_reason:string|null;superseded_by:string|null}
 interface Choice {id:string;proposal_version_id:string|null;label:string;content_hash:string|null;content:unknown}
@@ -44,6 +45,7 @@ export async function castVoteInTx(tx:Tx,token:string,actor:CallbackActor,botId:
  if(ballot.state==='prepared'){invariant(time.timely,'ballot_not_open',time.hasClosed?'This ballot window has closed':'Voting has not opened yet');round=await activateInTx(tx,ballot,round,time.instant);}
  invariant(ballot.state==='voting'&&!time.hasClosed,'ballot_closed',ballot.superseded_by?'This ballot was superseded; open the replacement record':'This ballot is closed; check the canonical result');
  invariant(time.timely,'ballot_not_open','Voting has not opened yet');
+ invariant((await tx.query('SELECT h.ballot_id FROM house_decisions h JOIN ballots b ON b.id=h.ballot_id WHERE h.ballot_id=$1 AND h.precommitted_at<b.opens_at',[ballot.id])).rowCount===1,'house_unavailable','The original paper House snapshot is missing; no retrospective choice is permitted');
  invariant(binding?.active&&binding.chat_id===button.chat_id&&binding.bot_id===botId&&ballot.rules.botId===botId,'group_unavailable','Guild group or bot permissions changed; check the canonical ballot');
  const roster=(await tx.query<{id:string}>('SELECT u.id FROM ballot_roster r JOIN users u ON u.id=r.user_id JOIN memberships m ON m.user_id=u.id AND m.guild_id=$3 WHERE r.ballot_id=$1 AND u.telegram_id=$2 AND m.status=\'active\' FOR SHARE OF m',[ballot.id,actor.telegramId,ballot.guild_id])).rows[0];invariant(roster,'ineligible','Only active linked members in this ballot’s frozen roster may vote; research remains open to active members');
  const rows=await choices(tx,ballot.id),choice=rows.find(c=>c.id===button.choice_id);invariant(validChoices(ballot,rows)&&choice&&choice.proposal_version_id===button.proposal_version_id,'invalid_ballot','This ballot’s locked versions cannot be verified; Keep holding is the safe fallback');
@@ -59,7 +61,8 @@ export async function closeBallot(db:Pool,id:string,clock?:Clock):Promise<Ballot
  const rows=await choices(tx,id),hold=rows.find(c=>!c.proposal_version_id);
  const counts=(await tx.query<{choiceId:string;votes:number}>('SELECT c.id AS "choiceId",count(v.user_id)::int AS votes FROM ballot_choices c LEFT JOIN votes v ON v.choice_id=c.id AND v.ballot_id=c.ballot_id WHERE c.ballot_id=$1 GROUP BY c.id ORDER BY c.id',[id])).rows,n=(await tx.query<{n:number}>('SELECT count(*)::int n FROM ballot_roster WHERE ballot_id=$1',[id])).rows[0].n;
  let decision:Omit<BallotDecision,'choiceId'>&{choiceId:string|null}=hold?ballotDecision(n,counts,hold.id):{choiceId:null,reason:'invalid',valid:false,quorum:Math.floor(n/2)+1,total:counts.reduce((sum,c)=>sum+c.votes,0)},detail:string|undefined;
- if(!validChoices(ballot,rows)||!binding?.active||binding.bot_id!==ballot.rules.botId){decision={...decision,choiceId:hold?.id??null,reason:'invalid',valid:false};detail='Locked versions or group binding unavailable';}
+ const house=(await tx.query('SELECT h.ballot_id FROM house_decisions h JOIN ballots b ON b.id=h.ballot_id WHERE h.ballot_id=$1 AND h.precommitted_at<b.opens_at',[id])).rows[0];
+ if(!validChoices(ballot,rows)||!binding?.active||binding.bot_id!==ballot.rules.botId||!house){decision={...decision,choiceId:hold?.id??null,reason:'invalid',valid:false};detail='Locked versions, group binding or earlier House precommit unavailable';}
  const outcome:BallotOutcome={...decision,strategy:!decision.valid||decision.choiceId===hold?.id?'hold':'call',counts,closedAt:time.savedAt,...(detail?{detail}:{})};
  await tx.query("UPDATE ballots SET state='closed',outcome=$2::jsonb WHERE id=$1",[id,JSON.stringify(outcome)]);await tx.query("INSERT INTO operations(id,kind,state,record) VALUES($1,'close_ballot','complete',$2::jsonb)",['close:'+id,JSON.stringify({ballotId:id,outcome})]);
  if(round.state==='voting'&&ballot.kind==='opening')await changeRoundInTx(tx,round,decision.valid?'execution_window':'unranked',`ballot-close:${id}`,decision.valid?'Canonical ballot closed; individual authorization remains separate':'Invalid ballot: Keep holding; no ranked entry inferred',time.instant);
@@ -76,6 +79,7 @@ export async function cancelBallot(db:Pool,userId:string,id:string,reason:string
  });}
 
 async function activateInTx(tx:Tx,ballot:BallotRecord,round:RoundRecord,now:Date):Promise<RoundRecord>{
+ invariant((await tx.query('SELECT h.ballot_id FROM house_decisions h JOIN ballots b ON b.id=h.ballot_id WHERE h.ballot_id=$1 AND h.precommitted_at<b.opens_at',[ballot.id])).rowCount===1,'house_unavailable','A verified earlier paper House precommit is required; no retrospective choice is allowed');
  const advanced=await advanceRoundInTx(tx,round.id,{now:()=>now});invariant(advanced.state==='voting','round_unavailable','The round cannot open this ballot');
  await tx.query('INSERT INTO ballot_roster(ballot_id,user_id) SELECT $1,user_id FROM round_roster WHERE round_id=$2 ON CONFLICT DO NOTHING',[ballot.id,round.id]);
  await tx.query("UPDATE ballots SET state='voting' WHERE id=$1 AND state='prepared'",[ballot.id]);ballot.state='voting';return advanced;
@@ -95,8 +99,9 @@ export async function prepareBallot(db:Pool,userId:string,guildId:string,roundId
   const ballot=(await tx.query<BallotRecord>("INSERT INTO ballots(guild_id,round_id,state,kind,opens_at,closes_at,rules) VALUES($1,$2,'prepared','opening',$3,$4,'{}') RETURNING *",[guildId,roundId,round.schedule.voteOpen,round.schedule.voteClose])).rows[0];
   for(const [i,candidate] of candidates.entries())await tx.query('INSERT INTO ballot_choices(ballot_id,guild_id,round_id,proposal_version_id,label) VALUES($1,$2,$3,$4,$5)',[ballot.id,guildId,roundId,candidate.id,`Call ${i+1} · proposal v${candidate.version}`]);
   const hold=(await tx.query<{id:string}>("INSERT INTO ballot_choices(ballot_id,guild_id,round_id,label) VALUES($1,$2,$3,'Keep holding SOL') RETURNING id",[ballot.id,guildId,roundId])).rows[0];
-  const rules:BallotRules={botId:binding.bot_id,candidateVersions:candidates.map(c=>({id:c.id,hash:c.content_hash})),holdChoiceId:hold.id};
-  await tx.query('UPDATE ballots SET rules=$2::jsonb WHERE id=$1',[ballot.id,JSON.stringify(rules)]);
+  const houseInput=await configuredHouseInput(tx,roundId,now.toISOString());
+  const rules:BallotRules={botId:binding.bot_id,dataCutoff:houseInput.cutoff,candidateVersions:candidates.map(c=>({id:c.id,hash:c.content_hash})),holdChoiceId:hold.id};
+  await tx.query('UPDATE ballots SET rules=$2::jsonb WHERE id=$1',[ballot.id,JSON.stringify(rules)]);await lockHouseInTx(tx,ballot.id,houseInput);
   for(const choice of await choices(tx,ballot.id))await tx.query('INSERT INTO callback_tokens(token,ballot_id,choice_id,chat_id,proposal_version_id) VALUES($1,$2,$3,$4,$5)',[opaqueToken(),ballot.id,choice.id,binding.chat_id,choice.proposal_version_id]);
   await tx.query("INSERT INTO operations(id,kind,state,record) VALUES($1,'prepare_ballot','complete',$2::jsonb)",[operationId,JSON.stringify({ballotId:ballot.id,versions:versionIds})]);
   await enqueue(tx,{task:'close_ballot',operationId:`close:${ballot.id}`,payload:{ballotId:ballot.id},runAt:round.schedule.voteClose});
@@ -115,7 +120,7 @@ export async function supersedeBallot(db:Pool,userId:string,id:string,reason:str
   const replacement=(await tx.query<BallotRecord>("INSERT INTO ballots(id,guild_id,round_id,state,kind,opens_at,closes_at,rules) SELECT $2,guild_id,round_id,'prepared',kind,opens_at,closes_at,'{}' FROM ballots WHERE id=$1 RETURNING *",[id,replacementId])).rows[0];
   let holdId:string|null=null;for(const old of oldChoices){const choice=(await tx.query<{id:string}>('INSERT INTO ballot_choices(ballot_id,guild_id,round_id,proposal_version_id,label) VALUES($1,$2,$3,$4,$5) RETURNING id',[replacement.id,ballot.guild_id,ballot.round_id,old.proposal_version_id,old.label])).rows[0];if(!old.proposal_version_id)holdId=choice.id;await tx.query('INSERT INTO callback_tokens(token,ballot_id,choice_id,chat_id,proposal_version_id) VALUES($1,$2,$3,$4,$5)',[opaqueToken(),replacement.id,choice.id,binding.chat_id,old.proposal_version_id]);}
   const rules={...ballot.rules,botId:binding.bot_id,holdChoiceId:holdId!};await tx.query('UPDATE ballots SET rules=$2::jsonb WHERE id=$1',[replacement.id,JSON.stringify(rules)]);
-  await tx.query('INSERT INTO ballot_roster(ballot_id,user_id) SELECT $1,user_id FROM ballot_roster WHERE ballot_id=$2',[replacement.id,id]);if(ballot.state==='voting'){await tx.query("UPDATE ballots SET state='voting' WHERE id=$1",[replacement.id]);replacement.state='voting';}
+  await inheritHouseInTx(tx,id,replacement.id);await tx.query('INSERT INTO ballot_roster(ballot_id,user_id) SELECT $1,user_id FROM ballot_roster WHERE ballot_id=$2',[replacement.id,id]);if(ballot.state==='voting'){await tx.query("UPDATE ballots SET state='voting' WHERE id=$1",[replacement.id]);replacement.state='voting';}
   await enqueue(tx,{task:'close_ballot',operationId:`close:${replacement.id}`,payload:{ballotId:replacement.id},runAt:ballot.closes_at.toISOString()});
   await audit(tx,{actorId:userId,guildId:ballot.guild_id,kind:'ballot_superseded',recordId:id,reason,record:{newBallotId:replacement.id,unchangedDeadline:ballot.closes_at.toISOString(),lockedVersionsUnchanged:true,votesNotTransferred:true}});return {...replacement,rules};
  });
