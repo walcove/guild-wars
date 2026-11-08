@@ -7,3 +7,4 @@ it('accepts one candidate plus Hold and treats abstention as no vote',()=>{
  expect(ballotDecision(3,[{choiceId:'a',votes:1},{choiceId:'hold',votes:0}],'hold')).toMatchObject({choiceId:'hold',reason:'no_quorum',quorum:2,total:1});
  expect(decideBallot(3,[{choiceId:'a',votes:2},{choiceId:'hold',votes:0}],'hold')).toBe('a');
 });
+it('allows a locked-product midweek confirmation only through its explicit Hold-only rule',()=>{const counts=[{choiceId:'hold',votes:2}];expect(ballotDecision(3,counts,'hold')).toMatchObject({valid:false});expect(ballotDecision(3,counts,'hold',true)).toMatchObject({valid:true,reason:'hold_won',quorum:2});});
