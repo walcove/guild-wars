@@ -12,7 +12,7 @@ export async function deliverProposal(db:Pool,id:string,config:BotConfiguration,
   if(!row||!['pending','failed'].includes(row.state)||row.attempts>=5)return null;
   const binding=(await tx.query('SELECT chat_id,bot_id,active FROM group_bindings WHERE guild_id=$1 FOR SHARE',[row.guild_id])).rows[0],member=(await tx.query("SELECT user_id FROM memberships WHERE guild_id=$1 AND user_id=$2 AND status='active'",[row.guild_id,row.author_id])).rows[0];
   if(!binding?.active||binding.chat_id!==row.chat_id||binding.bot_id!==config.botId||row.record.botId!==config.botId||!member){await tx.query("UPDATE telegram_deliveries SET state='blocked' WHERE id=$1",[id]);return null;}
-  const card=proposalCard({guild:row.guild_name,round:row.round_number,proposalId:row.proposal_id,versionId:row.proposal_version_id,version:row.version,content:row.content as ProposalContent,replacement:!!row.replaces_id,stage:row.round_state,deadline:row.round_schedule.candidateLock},config.origin);
+  const card=proposalCard({deliveryId:row.id,guild:row.guild_name,round:row.round_number,proposalId:row.proposal_id,versionId:row.proposal_version_id,version:row.version,content:row.content as ProposalContent,replacement:!!row.replaces_id,stage:row.round_state,deadline:row.round_schedule.candidateLock},config.origin);
   if(!await beginDelivery(tx,id))return null;return {row,card};
  });if(!prepared)return;
  try {

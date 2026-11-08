@@ -225,6 +225,13 @@
       "when": 1794129621101,
       "tag": "0031_gifted_madame_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794130813696,
+      "tag": "0032_square_lady_mastermind",
+      "breakpoints": true
     }
   ]
 }

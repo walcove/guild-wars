@@ -1,0 +1,18 @@
+import type {Pool} from 'pg';
+import {z} from 'zod';
+import {inGuild} from '../db/repositories';
+import {invariant} from '../../domain/errors';
+import {discussionLink} from '../telegram/proposal-messages';
+export interface NavigationReferences {origin?:string;version?:string}
+export function navigationQuery(refs:NavigationReferences):string{const q=new URLSearchParams();if(refs.version)q.set('version',refs.version);if(refs.origin)q.set('origin',refs.origin);return q.size?'?'+q.toString():'';}
+export interface DiscussionContextView {origin:string|null;version:string|null;state:string;discussionUrl:string|null;groupUrl:string|null;versions:{id:string;proposalId:string;version:number;latestVersionId:string}[]}
+export async function readDiscussionContext(db:Pool,userId:string,guildId:string,roundId:string,refs:NavigationReferences):Promise<DiscussionContextView|null>{if(!refs.origin&&!refs.version)return null;return inGuild(db,userId,guildId,async tx=>{
+ if(refs.version)invariant(z.uuid().safeParse(refs.version).success,'version_unavailable','The linked proposal version is invalid');const binding=(await tx.query('SELECT chat_id,group_url,active FROM group_bindings WHERE guild_id=$1',[guildId])).rows[0];let state='message_unavailable',message:{chat_id:string;topic_id:string|null;message_id:string|null;state:string}|null=null,ids:string[]=[];
+ if(refs.origin){invariant(/^[pb]_[a-f0-9-]{36}$/.test(refs.origin),'origin_unavailable','The original discussion reference is invalid');const id=refs.origin.slice(2);invariant(z.uuid().safeParse(id).success,'origin_unavailable','The original discussion reference is invalid');
+ if(refs.origin.startsWith('p_')){const row=(await tx.query('SELECT d.* FROM telegram_deliveries d JOIN proposal_versions v ON v.id=d.proposal_version_id WHERE d.id=$1 AND v.guild_id=$2 AND v.round_id=$3',[id,guildId,roundId])).rows[0];invariant(row,'origin_unavailable','This discussion does not belong to the linked guild and round');message=row;state=row.state;ids=[row.proposal_version_id];}
+ else {const row=(await tx.query("SELECT d.*,b.rules FROM ballot_deliveries d JOIN ballots b ON b.id=d.ballot_id WHERE d.navigation_ref=$1 AND b.guild_id=$2 AND b.round_id=$3 AND d.kind IN ('ballot','result')",[id,guildId,roundId])).rows[0];invariant(row,'origin_unavailable','This ballot message does not belong to the linked guild and round');message=row;state=row.state;ids=(await tx.query<{id:string}>('SELECT proposal_version_id AS id FROM ballot_choices WHERE ballot_id=$1 AND proposal_version_id IS NOT NULL',[row.ballot_id])).rows.map(r=>r.id);if(!ids.length&&row.rules?.originalProposalVersionId)ids=[row.rules.originalProposalVersionId];}
+ if(refs.version)invariant(ids.includes(refs.version),'origin_version_mismatch','This version does not match the original discussion; use its exact recorded link');
+ }else if(refs.version)ids=[refs.version];
+ const versions=(await tx.query<DiscussionContextView['versions'][number]>('SELECT v.id,v.proposal_id AS "proposalId",v.version,(SELECT v2.id FROM proposal_versions v2 WHERE v2.proposal_id=v.proposal_id ORDER BY v2.version DESC LIMIT 1) AS "latestVersionId" FROM proposal_versions v WHERE v.id=ANY($1::uuid[]) AND v.guild_id=$2 AND v.round_id=$3 ORDER BY v.version,v.id',[ids,guildId,roundId])).rows;invariant(versions.length===ids.length,'version_unavailable','The original version cannot be verified in this round');
+ const sameGroup=!!binding?.active&&message?.chat_id===binding.chat_id;return {origin:refs.origin??null,version:refs.version??null,state,discussionUrl:message&&sameGroup?discussionLink(message,binding.group_url):null,groupUrl:binding?.active?binding.group_url:null,versions};
+ });}
