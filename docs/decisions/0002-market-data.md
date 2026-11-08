@@ -1,0 +1,9 @@
+# 0002 · Market data readiness
+
+Observed 2026-11-07. Research integration candidate: CoinGecko `solana`, USD spot/history, server-side credentials only. **Configured access / display and storage rights: Unavailable pending selection of a permitted plan.** No paid resources or account were created.
+
+[Official market-chart endpoint](https://docs.coingecko.com/reference/coins-id-market-chart) documents timestamped price/volume arrays, plan-dependent history and sampling. Automatic granularity changes with the range; do not assume every response supplies hourly marks. [API terms](https://www.coingecko.com/en/api_terms), sections 3–4, make the licence depend on the chosen plan and restrict redistribution of access. Confirm the intended chart display, cache retention, attribution, export and storage against the actual account terms before enabling requests. No API key or licensed account was supplied; no authenticated smoke check ran.
+
+CoinGecko spot/history does not establish rights or data for option fills, option liabilities, hourly option marks or contract settlement. Those are separately **Unavailable**. Missing inputs mean teaching-only/unranked and missing valuation data, never zero option liability or an assumed USDC/USD peg. Source corrections retain revisions.
+
+Local development uses original synthetic fixtures, visibly labeled hypothetical and never executable. Implement a fail-closed adapter and numeric fallback independently of data access. Lightweight Charts is rendering only; retain [TradingView attribution](https://tradingview.github.io/lightweight-charts/docs). Curated original-source events may reference [Federal Reserve](https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm), [BLS](https://www.bls.gov/schedule/news_release/) and [Solana Status](https://status.solana.com/); no calendar API is assumed.

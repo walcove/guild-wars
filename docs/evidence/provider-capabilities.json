@@ -1,0 +1,39 @@
+{
+  "observedAt": "2026-11-07",
+  "status": "unavailable",
+  "gate0Passed": false,
+  "providerId": null,
+  "executionLocation": null,
+  "custody": null,
+  "livePreparationEnabled": false,
+  "evidence": [
+    "../decisions/0001-live-provider.md"
+  ],
+  "capabilities": {
+    "memberAuthorization": false,
+    "quotes": false,
+    "fills": false,
+    "positions": false,
+    "settlement": false,
+    "earlyClose": false,
+    "roll": false,
+    "longCall": false,
+    "protectivePut": false,
+    "claims": false,
+    "importVerification": false,
+    "enforcedOrderExpiry": false,
+    "cancellation": false,
+    "authoritativeFillTime": false
+  },
+  "unverified": {
+    "exactExpirations": null,
+    "minimumLamports": null,
+    "incrementLamports": null,
+    "feeCurrency": null,
+    "quoteTtlSeconds": null,
+    "settlementType": null,
+    "orderTimeInForce": null,
+    "cancellationAuthority": null,
+    "terminalStateEvidence": null
+  }
+}

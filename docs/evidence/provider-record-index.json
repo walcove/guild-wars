@@ -1,0 +1,45 @@
+{
+  "observedAt": "2026-11-07",
+  "records": [
+    {
+      "kind": "quote",
+      "status": "unavailable",
+      "source": null,
+      "permission": null,
+      "fieldsAvailable": [],
+      "unverified": "No permitted authoritative record supplied or identified."
+    },
+    {
+      "kind": "fill",
+      "status": "unavailable",
+      "source": null,
+      "permission": null,
+      "fieldsAvailable": [],
+      "unverified": "No permitted authoritative record supplied or identified."
+    },
+    {
+      "kind": "failure",
+      "status": "unavailable",
+      "source": null,
+      "permission": null,
+      "fieldsAvailable": [],
+      "unverified": "No permitted authoritative record supplied or identified."
+    },
+    {
+      "kind": "position",
+      "status": "unavailable",
+      "source": null,
+      "permission": null,
+      "fieldsAvailable": [],
+      "unverified": "No permitted authoritative record supplied or identified."
+    },
+    {
+      "kind": "settlement",
+      "status": "unavailable",
+      "source": null,
+      "permission": null,
+      "fieldsAvailable": [],
+      "unverified": "No permitted authoritative record supplied or identified."
+    }
+  ]
+}
