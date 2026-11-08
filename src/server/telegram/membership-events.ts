@@ -2,7 +2,7 @@ import type {Tx} from '../db/client';
 import {audit} from '../services/audit';
 export interface MembershipEvent {chat:{id:number};new_chat_member:{user:{id:number};status:string;is_member?:boolean}}
 export async function applyMembershipEvent(tx:Tx,event:MembershipEvent,botEvent:boolean,botId:string):Promise<void> {
- const binding=(await tx.query('SELECT guild_id FROM group_bindings WHERE chat_id=$1 FOR UPDATE',[event.chat.id.toString()])).rows[0];if(!binding)return;
+ const binding=(await tx.query('SELECT guild_id FROM group_bindings WHERE chat_id=$1 AND bot_id=$2 FOR UPDATE',[event.chat.id.toString(),botId])).rows[0];if(!binding)return;
  const member=event.new_chat_member;
  if(botEvent) {
   if(member.user.id.toString()!==botId)return;

@@ -1,0 +1,9 @@
+import {randomUUID} from 'node:crypto';
+import type {Pool} from 'pg';
+import {syntheticGuild} from './fixtures';
+import {saveDraft,type PlanCatalog} from '../../../src/server/services/proposals';
+export const syntheticDraft={selection:'synthetic-call',why:'Synthetic rationale, not a live claim',mainRisk:'SOL can fall substantially',sourceUrl:'https://status.solana.com/',changeOfView:'Verified opposing evidence'};
+export function syntheticPlanCatalog(db:Pool):PlanCatalog {return {resolve:async(round,selection)=>{
+ const stamp=(await db.query<{t:Date}>('SELECT clock_timestamp() t')).rows[0].t.toISOString();return {guildId:round.guild_id,roundId:round.id,mode:round.mode,dataClass:'teaching_only',terms:{underlying:'SOL',settlementCurrency:'USDC',strike:{amount:'110',denomination:'USD',per:'SOL'},expiresAt:round.expires_at.toISOString(),settlement:'physical',custody:'protocol_escrow',location:'solana',instrumentId:selection,providerId:'synthetic'},allocationLamports:'10000000000',reserveLamports:'10000000',referenceLamports:'9990000000',minimumLamports:null,incrementLamports:null,capacityLamports:null,quote:null,acceptance:{minimumNetPremiumUsdcMicrosPerSol:'0',maxFees:[{currency:'USDC',units:'0'}]},source:{sourceId:'synthetic-assumption',observedAt:stamp,receivedAt:stamp,synthetic:true}};
+ }};}
+export async function syntheticProposal(db:Pool){const f=await syntheticGuild(db),saved=await saveDraft(db,f.userId,f.guildId,f.roundId,{requestId:randomUUID(),draft:syntheticDraft},syntheticPlanCatalog(db)),chatId=(-1000000000000n-BigInt('0x'+randomUUID().replaceAll('-','').slice(0,8))).toString();await db.query("INSERT INTO group_bindings(guild_id,chat_id,administrator_id,method,verified_at,bot_id) VALUES($1,$2,$3,'synthetic',clock_timestamp(),'9001')",[f.guildId,chatId,f.userId]);return {...f,chatId,proposal:saved};}

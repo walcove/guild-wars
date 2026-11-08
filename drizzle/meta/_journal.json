@@ -92,6 +92,13 @@
       "when": 1794114499898,
       "tag": "0012_append_only_annotations",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794114732965,
+      "tag": "0013_sudden_epoch",
+      "breakpoints": true
     }
   ]
 }

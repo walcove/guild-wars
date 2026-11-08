@@ -15,8 +15,8 @@ export async function invitationView(db:Pool,token:string) {
 }
 export async function acceptInvitation(db:Pool,userId:string,token:string,verifier:GroupVerifier):Promise<{guildId:string}> {
  invariant(validToken(token),'invitation_unavailable','Invalid invitation');
- const selected=(await db.query("SELECT v.guild_id,b.chat_id,b.active,u.telegram_id FROM guild_invitations v JOIN group_bindings b ON b.guild_id=v.guild_id JOIN users u ON u.id=$2 WHERE v.token_hash=$1",[tokenHash(token),userId])).rows[0];
- invariant(selected?.active,'group_unavailable','The guild group must be verified before joining');
+ const selected=(await db.query("SELECT v.guild_id,b.chat_id,b.bot_id,b.active,u.telegram_id FROM guild_invitations v JOIN group_bindings b ON b.guild_id=v.guild_id JOIN users u ON u.id=$2 WHERE v.token_hash=$1",[tokenHash(token),userId])).rows[0];
+ invariant(selected?.active&&selected.bot_id===verifier.botId,'group_unavailable','The guild group must be verified before joining');
  const proof=await verifier.member(selected.chat_id,selected.telegram_id);freshGroupProof(proof.observedAt);
  invariant(proof.chatId===selected.chat_id&&proof.telegramId===selected.telegram_id&&['administrator','creator'].includes(proof.botStatus),'invalid_group_proof','Current group membership could not be verified');
  invariant(['member','administrator','creator'].includes(proof.status)||(proof.status==='restricted'&&proof.isMember),'group_membership_required','Join the guild’s Telegram group before accepting its website invitation');

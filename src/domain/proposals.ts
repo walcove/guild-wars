@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {invariant} from './errors';
 import {sourceUrl} from './source-url';
-import {unitsSchema,parseContractTerms,parseSource,parseUtc,type ContractTerms,type TradingMode,type SourceStamp} from './types';
+import {modeSchema,unitsSchema,parseContractTerms,parseSource,parseUtc,type ContractTerms,type TradingMode,type SourceStamp} from './types';
 import type {OptionQuote} from '../server/providers/contracts';
 import {assertEligibleQuote} from '../server/providers/quote-policy';
 export interface PlanContext {guildId:string;roundId:string;mode:TradingMode;dataClass:'teaching_only'|'verified';terms:ContractTerms;allocationLamports:string;reserveLamports:string;referenceLamports:string;minimumLamports:string|null;incrementLamports:string|null;capacityLamports:string|null;quote:OptionQuote|null;acceptance:{minimumNetPremiumUsdcMicrosPerSol:string;maxFees:{currency:'SOL'|'USDC';units:string}[]};source:SourceStamp}
@@ -10,6 +10,7 @@ export const proposalDraftSchema=z.object({selection:z.string().min(1).max(128),
 export type ProposalDraft=z.infer<typeof proposalDraftSchema>;
 export interface ProposalContent extends PlanContext {schemaVersion:1;comparisonLamports:'1000000000';research:ProposalDraft}
 export function validateProposal(input:unknown,context:PlanContext,now:string):ProposalContent {
+ const mode=modeSchema.parse(context.mode),dataClass=z.enum(['teaching_only','verified']).parse(context.dataClass);z.uuid().parse(context.guildId);z.uuid().parse(context.roundId);
  const draft=proposalDraftSchema.parse(input),terms=parseContractTerms(context.terms),source=parseSource(context.source);parseUtc(now);
  invariant(draft.selection===terms.instrumentId,'instrument','Choose a currently eligible strike from this round');
  const allocation=BigInt(unitsSchema.parse(context.allocationLamports)),reserve=BigInt(unitsSchema.parse(context.reserveLamports)),reference=BigInt(unitsSchema.parse(context.referenceLamports));
@@ -19,12 +20,13 @@ export function validateProposal(input:unknown,context:PlanContext,now:string):P
  invariant(context.mode!=='live'||(!source.synthetic&&context.dataClass==='verified'),'synthetic_live','A synthetic assumption cannot become a live proposal');
  invariant(context.dataClass==='teaching_only'||!source.synthetic,'source_class','Verified proposals need authoritative provenance');
  const acceptance=z.object({minimumNetPremiumUsdcMicrosPerSol:unitsSchema,maxFees:z.array(z.object({currency:z.enum(['SOL','USDC']),units:unitsSchema}).strict()).min(1).max(4)}).strict().parse(context.acceptance);
+ let normalizedQuote:OptionQuote|null=null;
  if(context.quote) {
   invariant(canonicalJson(context.quote.terms)===canonicalJson(terms)&&context.quote.coveredLamports===reference.toString()&&canonicalJson(context.quote.source)===canonicalJson(source),'quote_terms','The quote must match the exact contract, reference coverage and source');
   invariant(context.minimumLamports&&context.incrementLamports,'size_unavailable','Verified provider minimum and size increment are required');
-  assertEligibleQuote(context.quote,{providerId:terms.providerId,mode:context.mode,instrumentId:terms.instrumentId,now,ranked:false,size:{minimumLamports:context.minimumLamports,incrementLamports:context.incrementLamports,capacityLamports:context.capacityLamports}});
+  normalizedQuote=assertEligibleQuote(context.quote,{providerId:terms.providerId,mode:context.mode,instrumentId:terms.instrumentId,now,ranked:false,size:{minimumLamports:context.minimumLamports,incrementLamports:context.incrementLamports,capacityLamports:context.capacityLamports}});
  } else invariant(context.dataClass==='teaching_only'&&context.mode==='simulation'&&source.synthetic,'quote_unavailable','A verified plan needs its current source quote');
- return {...context,terms,source,acceptance,schemaVersion:1,comparisonLamports:'1000000000',research:{...draft,sourceUrl:sourceUrl(draft.sourceUrl)}};
+ return {guildId:context.guildId,roundId:context.roundId,mode,dataClass,allocationLamports:allocation.toString(),reserveLamports:reserve.toString(),referenceLamports:reference.toString(),minimumLamports:context.minimumLamports===null?null:unitsSchema.parse(context.minimumLamports),incrementLamports:context.incrementLamports===null?null:unitsSchema.parse(context.incrementLamports),capacityLamports:context.capacityLamports===null?null:unitsSchema.parse(context.capacityLamports),quote:normalizedQuote,terms,source,acceptance,schemaVersion:1,comparisonLamports:'1000000000',research:{...draft,sourceUrl:sourceUrl(draft.sourceUrl)}};
 }
 export function canonicalJson(value:unknown):string {
  function sorted(v:unknown):unknown {

@@ -14,3 +14,6 @@ it('rejects expired verified display quotes, wrong expiration, and noncanonical 
  expect(()=>validateProposal(draft,{...context,terms:{...terms,expiresAt:'bad'}},at)).toThrow();
  expect(canonicalJson({b:2,a:{z:'1',b:'2'}})).toBe(canonicalJson({a:{b:'2',z:'1'},b:2}));
 });
+it('projects only approved public fields from an internal provider context',()=>{
+ const accidental={...context,apiKey:'must-never-be-published'};expect(JSON.stringify(validateProposal(draft,accidental,at))).not.toContain('must-never-be-published');
+});

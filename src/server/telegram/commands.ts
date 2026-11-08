@@ -1,3 +1,4 @@
+import {researchCommandCard,type ResearchCommand} from './research-commands';
 import {GrammyError} from 'grammy';
 import type {Pool} from 'pg';
 import {transaction} from '../db/client';
@@ -5,7 +6,7 @@ import {invariant} from '../../domain/errors';
 import {enqueue} from '../jobs/queue';
 import {linkPrompt,type BotCard} from './render';
 import type {BotConfiguration,TelegramTransport} from './webhook';
-interface CommandRecord {botId:string;command:string;senderId:string;chatId:string;chatType:string;challengeHash?:string;deliveryAttempts?:number;retryAt?:string;messageId?:string}
+interface CommandRecord extends ResearchCommand {botId:string;command:string;senderId:string;chatId:string;chatType:string;challengeHash?:string;deliveryAttempts?:number;retryAt?:string;messageId?:string}
 async function commandCard(db:Pool,record:CommandRecord,configuration:BotConfiguration):Promise<BotCard> {
  const buttons=[[{text:'Open Guild Wars',url:configuration.origin}]];
  if(record.command==='start'&&record.challengeHash&&record.chatType==='private'&&record.chatId===record.senderId){
@@ -13,8 +14,9 @@ async function commandCard(db:Pool,record:CommandRecord,configuration:BotConfigu
   if(row)return linkPrompt(record.challengeHash,record.senderId,configuration.origin);
   return {text:'This connection expired or is unavailable. Restart it in the original browser.',buttons};
  }
+ if(['plan','research','note'].includes(record.command))return researchCommandCard(db,record,configuration);
  if(record.command==='privacy')return {text:'Guild Wars retains selected commands, explicit research replies and necessary membership events. It does not mirror the whole chat. Private guild and account records require authorization. We never request seed phrases or private keys. Voting and account linking do not authorize a trade.',buttons};
- if(['start','help'].includes(record.command))return {text:'<b>Guild Wars · SOL covered calls</b>\nResearch and build plans on the website. Discuss and vote in your Telegram group. Selling a call caps upside; SOL can still lose value. Each real order needs your separate provider authorization.\n/start · /help · /privacy',buttons};
+ if(['start','help'].includes(record.command))return {text:'<b>Guild Wars · SOL covered calls</b>\nResearch and build plans on the website. Discuss and vote in your Telegram group. Selling a call caps upside; SOL can still lose value. Each real order needs your separate provider authorization.\n/start · /help · /privacy · /plan · /research · /note',buttons};
  return {text:'Open your guild on the website for this command’s canonical record. The corresponding community service is not yet available here.',buttons};
 }
 export async function deliverCommand(db:Pool,operationId:string,configuration:BotConfiguration,transport:TelegramTransport):Promise<void> {
