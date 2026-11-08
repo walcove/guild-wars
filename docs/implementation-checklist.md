@@ -19,9 +19,9 @@ Canonical progress record. Governing [plan revision 1.2](plans/2026-11-07-guild-
 - [ ] **Task 5: Implement browser sessions and Telegram account linking** — Pending.
 - [ ] **Task 6: Add the regular Telegram bot transport** — Pending.
 - [ ] **Task 7: Bind guilds to groups and enforce membership** — Pending.
-- [ ] **Task 8: Implement season schedules and round states** — Pending.
-- [ ] **Task 9: Define quote adapters and provenance controls** — Pending.
-- [ ] **Task 10: Build payoff calculations and the event ledger** — Pending.
+- [ ] **Task 8: Implement season schedules and round states** — Domain schedule/state rules implemented, 6 unit checks pass. Persistent transitions/rosters remain blocked by Task 3 runtime.
+- [ ] **Task 9: Define quote adapters and provenance controls** — Mode-separated contracts, registry and quote validation implemented. 3 policy and 2 common contract checks pass; no live provider installed.
+- [ ] **Task 10: Build payoff calculations and the event ledger** — Exact delivered payoff, currency conversion and append-only ledger projection implemented; 11 unit checks pass. Persistent idempotency integration remains blocked.
 - [ ] **Task 11: Integrate SOL history and source-linked events** — Pending.
 - [ ] **Task 12: Add member evidence and the beginner research UI** — Pending.
 - [ ] **Task 13: Build immutable proposals and the plan builder** — Pending.
@@ -90,3 +90,5 @@ Engineering T1–T17 and design D01–D09 remain required. Copied governing plan
 - Task 3: `npm run db:generate` generated 0000; custom 0001 adds mode immutability, append-only triggers and constraints. Migration-safety units 6/6; typecheck/lint exit 0. Compose/migration/integration attempts failed before assertions; [runtime blockers](evidence/local-runtime-blockers.md). No database pass claimed.
 - Ruling: retain incomplete runtime checks and continue only independently verifiable source/rules while infrastructure is unavailable; no alternative fake engine substitutes for PostgreSQL races. Cost if wrong: integration fixes remain before activation.
 - Pre-flight interfaces: Tasks 2→3/9/10 use decimal-string units, explicit mode/denomination and UTC. Tasks 3→4/5/15 require same-transaction enqueue/scope/locks. Tasks 9→17/20 require separate booking versus authorization methods, no universal submit. Tasks 18/20→19/21 independently require verified provider access and registration; fixtures cannot activate real sleeves. Tasks 10/22→24/25 require append-only revisions and complete frozen cohorts. These boundaries are consistent.
+
+- Independent Tasks 8–10 RED→GREEN: schedule stubs 2 relevant failures → 6/6; quote stubs 2 failures → 3/3 plus 2 common contract checks; payoff/ledger stubs 11 failures → 11/11. Typecheck/lint pass. These do not replace required database, licensed-source or live-provider evidence.
