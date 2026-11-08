@@ -1,0 +1,12 @@
+import {test,expect} from '@playwright/test';
+import {Pool} from 'pg';
+import {requireTestDatabaseUrl} from '../../src/server/db/test-target';
+import {transaction} from '../../src/server/db/client';
+import {createSession} from '../../src/server/auth/sessions';
+import {systemClock} from '../../src/domain/clock';
+import {syntheticReviewedIntents} from '../integration/helpers/orders';
+import {appendLedger} from '../../src/server/services/ledger';
+import {recordResultValuation} from '../../src/server/services/results';
+import {basis,events} from '../fixtures/results';
+let db:Pool;test.beforeAll(()=>{db=new Pool({connectionString:requireTestDatabaseUrl(process.env.TEST_DATABASE_URL),max:2});});test.afterAll(async()=>{await db.end();});
+for(const width of [390,1360])test(`negative total with positive holding difference at ${width}px`,async({page,context})=>{const f=await syntheticReviewedIntents(db,{window:{opensAt:basis.entryAt,closesAt:new Date(Date.parse(basis.entryAt)+3600000).toISOString()},expiresAt:basis.expiry}),s=await transaction(db,tx=>createSession(tx,f.userId,systemClock));await appendLedger(db,f.sleeveId,'simulation',events.map(e=>({...e,id:e.id+':'+f.sleeveId,observedAt:e.kind==='funding'?basis.entryAt:basis.exitAt,source:e.kind==='funding'?basis.entrySource:basis.source})));await recordResultValuation(db,f.sleeveId,'synthetic-losing-round',{basis,dataClass:'teaching_only',dataRightsReference:null,settlementRecordReference:'original-synthetic-settlement'});await context.addCookies([{name:'gw_session',value:s.sessionToken,url:'http://127.0.0.1:3000',httpOnly:true,sameSite:'Lax'}]);await page.setViewportSize({width,height:900});await page.goto(`/rounds/${f.roundId}/results`);await expect(page.getByRole('heading',{name:'Lost less than holding'})).toBeVisible();await expect(page.getByText('-180.58 USD',{exact:true})).toBeVisible();await expect(page.getByText('19.42 USD',{exact:true})).toBeVisible();await page.getByText('Premium, underlying, fees and source revision',{exact:true}).click();await expect(page.getByText('20 USDC',{exact:true})).toBeVisible();await expect(page.getByText('Original synthetic teaching records',{exact:false})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);await page.screenshot({path:`.local/screenshots/results-losing-${width}.png`,fullPage:true});await context.clearCookies();expect((await page.request.get(`/api/rounds/${f.roundId}/results`)).status()).toBe(401);});

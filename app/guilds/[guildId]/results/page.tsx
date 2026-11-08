@@ -1,0 +1,6 @@
+import Link from 'next/link';
+import {AppShell} from '@/src/components/navigation/app-shell';
+import {pageUser} from '@/src/server/auth/page-session';
+import {getPool} from '@/src/server/db/client';
+import {inGuild} from '@/src/server/db/repositories';
+export default async function Page({params}:{params:Promise<{guildId:string}>}){const {guildId}=await params,user=await pageUser(`/guilds/${guildId}/results`),rounds=await inGuild(getPool(),user,guildId,async tx=>(await tx.query('SELECT r.id,r.number,r.mode,r.state,se.id AS season_id,se.division FROM rounds r JOIN seasons se ON se.id=r.season_id WHERE r.guild_id=$1 ORDER BY se.created_at DESC,r.number DESC LIMIT 40',[guildId])).rows);return <AppShell guildId={guildId} context="Results · Separate mode and division"><h1>Round results</h1><p>Total net result comes before points. Missing settlement and valuation evidence remains visible.</p>{rounds.length?<ul>{rounds.map(r=><li key={r.id}><Link href={`/rounds/${r.id}/results`}>Round {r.number} · {r.mode==='simulation'?'Simulation':'Real trading'} · {r.division} · {r.state.replaceAll('_',' ')}</Link> · <Link href={`/seasons/${r.season_id}/leaderboard`}>Season comparison</Link></li>)}</ul>:<p>No rounds are published yet.</p>}</AppShell>;}
