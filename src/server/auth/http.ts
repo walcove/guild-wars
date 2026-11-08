@@ -37,3 +37,6 @@ export async function sessionCsrf(token:string,existing:string|undefined,storedH
  if(existing&&matchesHash(existing,storedHash))return existing;
  const csrf=opaqueToken();await transaction(getPool(),tx=>tx.query('UPDATE sessions SET csrf_hash=$2 WHERE token_hash=$1 AND revoked_at IS NULL',[tokenHash(token),tokenHash(csrf)]));return csrf;
 }
+export async function mutationUser(request:NextRequest):Promise<string> {
+ const {session}=await mutationSession(request);if(!session.userId)throw new DomainError('unauthorized','Connect your Telegram account first');return session.userId;
+}

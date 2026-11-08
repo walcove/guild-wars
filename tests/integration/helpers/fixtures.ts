@@ -3,7 +3,7 @@ import type {Pool} from 'pg';
 import {transaction} from '../../../src/server/db/client';
 export async function syntheticGuild(db:Pool) {
  const ids={userId:randomUUID(),guildId:randomUUID(),seasonId:randomUUID(),roundId:randomUUID(),proposalId:randomUUID(),versionId:randomUUID()};
- const telegramId=(BigInt('0x'+ids.userId.replaceAll('-','').slice(0,15))+1n).toString();
+ const telegramId=(BigInt('0x'+ids.userId.replaceAll('-','').slice(0,12))+1n).toString();
  await transaction(db,async tx=>{
   await tx.query('INSERT INTO users(id,telegram_id) VALUES($1,$2)',[ids.userId,telegramId]);
   await tx.query("INSERT INTO guilds(id,name,owner_id) VALUES($1,'Synthetic test guild',$2)",[ids.guildId,ids.userId]);

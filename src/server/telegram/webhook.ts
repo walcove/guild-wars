@@ -6,6 +6,7 @@ import {tokenHash} from '../auth/crypto';
 import {transaction,type Tx} from '../db/client';
 import {enqueue} from '../jobs/queue';
 import {linkCallback,type CallbackActor,type CallbackReceipt} from './callbacks';
+import {applyMembershipEvent} from './membership-events';
 import type {BotButton} from './render';
 export interface BotConfiguration {botId:string;username:string;secret:string;origin:string}
 export interface TelegramTransport {send:(chatId:string,text:string,buttons?:BotButton[][])=>Promise<{messageId:string}>;answer:(id:string,text:string)=>Promise<void>}
@@ -14,7 +15,8 @@ const integer=z.number().int().safe();
 const user=z.object({id:integer.positive()});
 const chat=z.object({id:integer.refine(n=>n!==0),type:z.enum(['private','group','supergroup','channel'])});
 const message=z.object({message_id:integer.positive(),from:user.optional(),chat,text:z.string().max(4096).optional()});
-const updateSchema=z.object({update_id:integer.nonnegative(),message:message.optional(),callback_query:z.object({id:z.string().min(1).max(128),from:user,message:message.optional(),data:z.string().refine(s=>Buffer.byteLength(s)<=64).optional()}).optional()});
+const membershipEvent=z.object({chat,new_chat_member:z.object({user,status:z.enum(['creator','administrator','member','restricted','left','kicked']),is_member:z.boolean().optional()})});
+const updateSchema=z.object({update_id:integer.nonnegative(),message:message.optional(),chat_member:membershipEvent.optional(),my_chat_member:membershipEvent.optional(),callback_query:z.object({id:z.string().min(1).max(128),from:user,message:message.optional(),data:z.string().refine(s=>Buffer.byteLength(s)<=64).optional()}).optional()});
 export function verifyWebhookSecret(secret:string|null,expected:string):void {
  invariant(secret&&secret.length<=256&&expected.length>=32&&timingSafeEqual(Buffer.from(tokenHash(secret),'hex'),Buffer.from(tokenHash(expected),'hex')),'unauthorized','Invalid Telegram webhook secret');
 }
@@ -31,7 +33,8 @@ export async function processUpdate(db:Pool,secret:string|null,raw:unknown,confi
   if(name==='start'&&update.message.chat.type==='private'&&/^link_[A-Za-z0-9_-]{43}$/.test(rest[0]??''))command.challengeHash=tokenHash(rest[0].slice(5));
   // Plain chat and arbitrary command arguments are never mirrored into retained records.
  }
- if(!command&&!update.callback_query)return {status:'ignored',message:'No selected command or callback'};
+ const membership=update.my_chat_member??update.chat_member;
+ if(!command&&!update.callback_query&&!membership)return {status:'ignored',message:'No selected command or callback'};
  const callback=update.callback_query;
  if(callback)invariant(callback.message&&callback.data,'callback_context','Open the original bot message to use this button');
  const receipt=await transaction(db,async tx=>{
@@ -39,7 +42,9 @@ export async function processUpdate(db:Pool,secret:string|null,raw:unknown,confi
   await tx.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[`telegram:${config.botId}:${update.update_id}`]);
   const prior=(await tx.query('SELECT receipt FROM consumed_updates WHERE bot_id=$1 AND update_id=$2',[config.botId,update.update_id.toString()])).rows[0];if(prior)return prior.receipt as CallbackReceipt;
   let result:CallbackReceipt;
-  if(callback) {
+  if(membership) {
+   await applyMembershipEvent(tx,membership,!!update.my_chat_member,config.botId);result={status:'saved',message:'Membership event applied'};
+  } else if(callback) {
    const actor={telegramId:callback.from.id.toString(),chatId:callback.message!.chat.id.toString(),chatType:callback.message!.chat.type,messageId:callback.message!.message_id.toString()};
    if(callback.data!.startsWith('l:'))result=await linkCallback(tx,callback.data!,actor);
    else {invariant(callback.data!.startsWith('b:')&&services.castBallot,'unavailable','This ballot is unavailable; open its canonical record');result=await services.castBallot(tx,callback.data!.slice(2),actor);}
